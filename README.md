@@ -48,9 +48,9 @@ The directory `srv` contains example reads in FASTQ and compressed FASTQ format 
 
 To test, run:
 
-`filter_illumina_index srv\example_reads.fastq --index GATCGTGT --filtered var\filtered_reads.fastq --unfiltered var\unfiltered_reads.fastq`
+`filter_illumina_index srv/example_reads.fastq --index GATCGTGT --filtered var/filtered_reads.fastq --unfiltered var/unfiltered_reads.fastq`
 
-This will process `srv\example_reads.fastq`, matching to index `GATCGTGT` with no mismatches allowed (default). Reads matching this index will be saved to `var\filtered_reads.fastq` and those not matching this index will be saved to  `var\unfiltered_reads.fastq`. In addition, the following output will be displayed:
+This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with no mismatches allowed (default). Reads matching this index will be saved to `var/filtered_reads.fastq` and those not matching this index will be saved to  `var/unfiltered_reads.fastq`. In addition, the following output will be displayed:
 
 ```
 Total reads: 30
