@@ -11,11 +11,13 @@ from Bio.SeqIO.QualityIO import FastqGeneralIterator
 Filter a Illumina FASTQ file based on index sequence.
 
 Reads a Illumina FASTQ file and compares the sequence index in the
-<sample number> position of the sequence identifier to a supplied sequence
-index. Entries that match the sequence index are filtered into the 'filtered'
-file (if any) and entries that don't match are filtered into the 'unfiltered'
-file (if any). Displays the count of total, filtered and unfiltered reads.
-Matching with mismatches, and input and output gzip compression are supported.
+`sample number` position of the sequence identifier to a supplied sequence
+index. Entries that match the sequence index are filtered into the *filtered
+file* (if any) and entries that don't match are filtered into the *unfiltered
+file* (if any). Displays the count of total, filtered and unfiltered reads.
+Matching with mismatches (`-m` parameter), and gzip compression for input
+(detected on the basis of file extension) and output (specified using `-c`
+parameter) are supported.
 """
 _PROGRAM_NAME = 'filter_illumina_index'
 # -------------------------------------------------------------------------------
@@ -28,9 +30,12 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.dev1'
+_PROGRAM_VERSION = '1.0'
 # -------------------------------------------------------------------------------
 # ### Change log
+#
+# version 1.0 2018-12-14
+# : Minor updates for PyPi and conda packaging
 #
 # version 1.0.dev1 2018-12-13
 # : First working version

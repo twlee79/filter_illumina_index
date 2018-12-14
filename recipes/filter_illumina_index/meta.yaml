@@ -1,0 +1,43 @@
+{% set name = "filter_illumina_index" %}
+{% set version = "1.0" %}
+{% set sha256 = "2fa46b6f03bfd353eba170ea88a3f6901e85c8848b3392bae948cebe6ef94488" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: {{ sha256 }}
+
+build:
+  number: 0
+  entry_points:
+    - filter_illumina_index = filter_illumina_index.filter_illumina_index:main
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv "
+
+requirements:
+  host:
+    - pip
+    - biopython
+    - python
+  run:
+    - biopython
+    - python
+
+test:
+  imports:
+    - filter_illumina_index
+  commands:
+    - filter_illumina_index --help
+
+about:
+  home: https://github.com/twlee79/filter_illumina_index
+  license: GNU General Public v3 (GPLv3)
+  license_family: GPL3
+  license_file: 'LICENSE'
+  summary: Filter a Illumina FASTQ file based on index sequence
+
+extra:
+  recipe-maintainers:
+    - twlee79

@@ -3,10 +3,12 @@
 
 Reads a Illumina FASTQ file and compares the sequence index in the
 `sample number` position of the sequence identifier to a supplied sequence
-index. Entries that match the sequence index are filtered into the 'filtered'
-file (if any) and entries that don't match are filtered into the 'unfiltered'
-file (if any). Displays the count of total, filtered and unfiltered reads.
-Matching with mismatches, and input and output gzip compression are supported.
+index. Entries that match the sequence index are filtered into the *filtered
+file* (if any) and entries that don't match are filtered into the *unfiltered
+file* (if any). Displays the count of total, filtered and unfiltered reads.
+Matching with mismatches (`-m` parameter), and gzip compression for input
+(detected on the basis of file extension) and output (specified using `-c`
+parameter) are supported.
 
 For information on Illumina sequence identifiers in FASTQ files, see: http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
 
@@ -42,6 +44,10 @@ required named arguments:
 
 ### Example usage
 
+The directory `srv` contains example reads in FASTQ and compressed FASTQ format with index `GATCGTGT` and one read with a mismatch.
+
+To test, run:
+
 `filter_illumina_index srv\example_reads.fastq --index GATCGTGT --filtered var\filtered_reads.fastq --unfiltered var\unfiltered_reads.fastq`
 
 This will process `srv\example_reads.fastq`, matching to index `GATCGTGT` with no mismatches allowed (default). Reads matching this index will be saved to `var\filtered_reads.fastq` and those not matching this index will be saved to  `var\unfiltered_reads.fastq`. In addition, the following output will be displayed:
@@ -62,6 +68,9 @@ Unfiltered reads: 1
 * Dependencies: Biopython, tested on v1.72
 
 ### Change log
+
+version 1.0 2018-12-14
+: Minor updates for PyPi and conda packaging
 
 version 1.0.dev1 2018-12-13
 : First working version
