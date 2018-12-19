@@ -30,9 +30,12 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0'
+_PROGRAM_VERSION = '1.0.1'
 # -------------------------------------------------------------------------------
 # ### Change log
+#
+# version 1.0.1 2018-12-19
+# : Speed up number of mismatches calculation
 #
 # version 1.0 2018-12-14
 # : Minor updates for PyPi and conda packaging
@@ -76,13 +79,11 @@ verbose = args.verbose
 
 # HELPER FUNCTIONS
 # calculates number of mismatches between s1 and s2
-
-
-def sum_mismatches(s1, s2): return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+def sum_mismatches(s1, s2):
+    if (s1==s2): return 0 # rely on interning to speed up this comparison
+    else: return sum(c1 != c2 for c1, c2 in zip(s1, s2))
 
 # writes a fastq entry to handle, avoiding unneeded string formating/concatenation
-
-
 def write_fastq_entry(handle, title, sequence, quality):
     handle.write('@')
     handle.write(title)

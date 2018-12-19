@@ -69,6 +69,9 @@ Unfiltered reads: 1
 
 ### Change log
 
+version 1.0.1 2018-12-19
+: Speed up number of mismatches calculation
+
 version 1.0 2018-12-14
 : Minor updates for PyPi and conda packaging
 

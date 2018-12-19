@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="filter_illumina_index",
-    version="1.0",
+    version="1.0.1",
     author="Tet Woo Lee",
     author_email="developer@twlee.nz",
     description="Filter a Illumina FASTQ file based on index sequence",
