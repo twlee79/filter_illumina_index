@@ -14,8 +14,9 @@ Reads a Illumina FASTQ file and compares the sequence index in the
 `sample number` position of the sequence identifier to a supplied sequence
 index. Entries that match the sequence index are filtered into the *filtered
 file* (if any) and entries that don't match are filtered into the *unfiltered
-file* (if any). Displays the count of total, filtered and unfiltered reads.
-Matching with mismatches (`-m` parameter), and gzip compression for input
+file* (if any). Displays the count of total, filtered and unfiltered reads,
+as well as the number of mismatches found across all reads. Matching tolerating
+a certain number of mismatches (`-m` parameter), and gzip compression for input
 (detected on the basis of file extension) and output (specified using `-c`
 parameter) are supported.
 """
@@ -30,9 +31,12 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.1'
+_PROGRAM_VERSION = '1.0.2'
 # -------------------------------------------------------------------------------
 # ### Change log
+#
+# version 1.0.2 2018-12-19
+# : Shows statistics on number of mismatches found
 #
 # version 1.0.1 2018-12-19
 # : Speed up number of mismatches calculation
@@ -79,11 +83,17 @@ verbose = args.verbose
 
 # HELPER FUNCTIONS
 # calculates number of mismatches between s1 and s2
+
+
 def sum_mismatches(s1, s2):
-    if (s1==s2): return 0 # rely on interning to speed up this comparison
-    else: return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+    if (s1 == s2):
+        return 0  # rely on interning to speed up this comparison
+    else:
+        return sum(c1 != c2 for c1, c2 in zip(s1, s2))
 
 # writes a fastq entry to handle, avoiding unneeded string formating/concatenation
+
+
 def write_fastq_entry(handle, title, sequence, quality):
     handle.write('@')
     handle.write(title)
@@ -106,10 +116,14 @@ else:
     output_opener = functools.partial(open, mode='w')
 
 # PROCESSING
+
+
 def main():
     total_reads = 0
     filtered_reads = 0
     unfiltered_reads = 0
+    cumul_n_mismatches = [0 for i in range(len(filter_seq_index) + 1)]
+    # array for tracking number of mismatches (0-all)
     with input_opener(input_path) as input_handle:
         if out_filtered_path:
             filtered_handle = output_opener(out_filtered_path)
@@ -133,17 +147,24 @@ def main():
             if n_mismatches <= max_mismatches:
                 filtered_reads += 1
                 if filtered_handle:
-                    write_fastq_entry(filtered_handle, title, sequence, quality)
+                    write_fastq_entry(filtered_handle, title,
+                                      sequence, quality)
             else:
                 unfiltered_reads += 1
                 if unfiltered_handle:
-                    write_fastq_entry(unfiltered_handle, title, sequence, quality)
+                    write_fastq_entry(unfiltered_handle,
+                                      title, sequence, quality)
             total_reads += 1
+            cumul_n_mismatches[n_mismatches] += 1
 
     # OUTPUT
     print("Total reads: {}".format(total_reads))
     print("Filtered reads: {}".format(filtered_reads))
     print("Unfiltered reads: {}".format(unfiltered_reads))
+    for n_mismatches, cumul_mismatches in enumerate(cumul_n_mismatches):
+        print(" Reads with {} mismatches: {}".format(
+            n_mismatches, cumul_mismatches))
+
 
 if __name__ == '__main__':
     main()

@@ -1,6 +1,6 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.1" %}
-{% set sha256 = "398ff4ea90939abcca184de98be480830b578d3dedca94fae144a0072be6dfdd" %}
+{% set version = "1.0.2" %}
+{% set sha256 = "70faeda8dacfe1161f79823af03f4f1337b4d8a302a49dba33227674defd2461" %}
 
 package:
   name: "{{ name|lower }}"

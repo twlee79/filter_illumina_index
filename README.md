@@ -5,8 +5,9 @@ Reads a Illumina FASTQ file and compares the sequence index in the
 `sample number` position of the sequence identifier to a supplied sequence
 index. Entries that match the sequence index are filtered into the *filtered
 file* (if any) and entries that don't match are filtered into the *unfiltered
-file* (if any). Displays the count of total, filtered and unfiltered reads.
-Matching with mismatches (`-m` parameter), and gzip compression for input
+file* (if any). Displays the count of total, filtered and unfiltered reads,
+as well as the number of mismatches found across all reads. Matching tolerating
+a certain number of mismatches (`-m` parameter), and gzip compression for input
 (detected on the basis of file extension) and output (specified using `-c`
 parameter) are supported.
 
@@ -56,6 +57,15 @@ This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with n
 Total reads: 30
 Filtered reads: 29
 Unfiltered reads: 1
+ Reads with 0 mismatches: 29
+ Reads with 1 mismatches: 1
+ Reads with 2 mismatches: 0
+ Reads with 3 mismatches: 0
+ Reads with 4 mismatches: 0
+ Reads with 5 mismatches: 0
+ Reads with 6 mismatches: 0
+ Reads with 7 mismatches: 0
+ Reads with 8 mismatches: 0
 ```
 
 ---
@@ -68,6 +78,9 @@ Unfiltered reads: 1
 * Dependencies: Biopython, tested on v1.72
 
 ### Change log
+
+version 1.0.2 2018-12-19
+: Shows statistics on number of mismatches found
 
 version 1.0.1 2018-12-19
 : Speed up number of mismatches calculation
