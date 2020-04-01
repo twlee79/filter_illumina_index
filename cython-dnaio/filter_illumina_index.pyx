@@ -1,0 +1,183 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import argparse
+import functools
+import mimetypes
+import gzip
+from functools import partial
+
+import dnaio
+import xopen
+
+"""
+Filter a Illumina FASTQ file based on index sequence.
+
+Reads a Illumina FASTQ file and compares the sequence index in the
+`sample number` position of the sequence identifier to a supplied sequence
+index. Entries that match the sequence index are filtered into the *filtered
+file* (if any) and entries that don't match are filtered into the *unfiltered
+file* (if any). Displays the count of total, filtered and unfiltered reads,
+as well as the number of mismatches found across all reads. Matching tolerating
+a certain number of mismatches (`-m` parameter), and gzip compression for input
+(detected on the basis of file extension) and output (specified using `-c`
+parameter) are supported.
+"""
+_PROGRAM_NAME = 'filter_illumina_index'
+# -------------------------------------------------------------------------------
+# Author:       Tet Woo Lee
+#
+# Created:      2018-12-13
+# Copyright:    © 2018 Tet Woo Lee
+# Licence:      GPLv3
+#
+# Dependencies: Biopython, tested on v1.72
+# -------------------------------------------------------------------------------
+
+# NOTE test version with cython/dnaio, based on 1.0.3.post1
+# dnaio seems to be poor replacement of biopython
+# using it give improved wall time (17s rather than 38s with 10M reads)
+# but worse cpu-time (48 rather than 37s with 10M reads; latter suggests small
+# amount of multithreading with biopython)
+# dnaio uses spawning pigz which greatly increases num of threads use
+# exact control of num of threads complicated by the use of multiple open
+# fastq files, with default dnaio implementation spawing 4 threads by reader/writer
+# some control possible with customised xopen opener
+# but overall efficiency of dnaio appears to be worse than biopython based on
+# cpu time
+#
+
+
+_PROGRAM_VERSION = '1.0.4'
+# -------------------------------------------------------------------------------
+# ### Change log
+#
+# version 1.0.3.post1 2020-01-04
+# : Bugfix: Bump version number in script
+#
+# version 1.0.3 2020-01-04
+# : Added `passthrough` mode with empty index.
+#
+# version 1.0.2 2018-12-19
+# : Shows statistics on number of mismatches found
+#
+# version 1.0.1 2018-12-19
+# : Speed up number of mismatches calculation
+#
+# version 1.0 2018-12-14
+# : Minor updates for PyPi and conda packaging
+#
+# version 1.0.dev1 2018-12-13
+# : First working version
+# -------------------------------------------------------------------------------
+
+
+# INITIALISATION
+
+def main():
+    parser = argparse.ArgumentParser(prog=_PROGRAM_NAME,
+                                     description=__doc__,
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_required_named = parser.add_argument_group('required named arguments')
+    parser.add_argument('--version', action='version',
+                        version='{} {}'.format(_PROGRAM_NAME, _PROGRAM_VERSION))
+    parser.add_argument('inputfile',
+                        help='Input FASTQ file, compression (`.gz`, `.bz2` and '
+                        '`.xz`) supported')
+    parser.add_argument('-f', '--filtered',
+                        help='Output FASTQ file containing filtered (positive) reads; '
+                        'compression detected by extension')
+    parser.add_argument('-u', '--unfiltered',
+                        help='Output FASTQ file containing unfiltered (negative) reads; '
+                        'compression detected by extension')
+    parser_required_named.add_argument('-i', '--index', required=True,
+                                       help='Sequence index to filter for; if empty '
+                                       '(i.e. "") then program will run in "passthrough" mode '
+                                       'with all reads directed to filtered file with no '
+                                       'processing')
+    parser.add_argument('-m', '--mismatches', default=0, type=int,
+                        help='Maximum number of mismatches to tolerate')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Show verbose output')
+    args = parser.parse_args()
+
+
+    input_path = args.inputfile
+    out_filtered_path = args.filtered
+    out_unfiltered_path = args.unfiltered
+    filter_seq_index = args.index
+    max_mismatches = args.mismatches
+    verbose = args.verbose
+
+    # HELPER FUNCTIONS
+    if filter_seq_index == '':
+        if verbose: print ('Empty index provided: Passthrough mode enabled and directing all reads to output filtered file with no processing.')
+        passthrough_mode = True
+    else:
+        passthrough_mode = False
+
+    # calculates number of mismatches between s1 and s2
+    def sum_mismatches(s1, s2):
+        if (s1 == s2):
+            return 0  # rely on interning to speed up this comparison
+        else:
+            return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+
+    xopen_xthreads = functools.partial(xopen.xopen, threads=1)
+
+    # PROCESSING
+    total_reads = 0
+    filtered_reads = 0
+    unfiltered_reads = 0
+    cumul_n_mismatches = [0 for i in range(len(filter_seq_index) + 1)]
+    # array for tracking number of mismatches (0-all)
+    with dnaio.open(input_path, mode='r', opener=xopen_xthreads) as input_fastq:
+        if out_filtered_path:
+            filtered_fastq = dnaio.open(out_filtered_path, mode='w', opener=xopen_xthreads)
+        else:
+            filtered_fastq = None
+        if out_unfiltered_path:
+            unfiltered_fastq = dnaio.open(out_unfiltered_path, mode='w', opener=xopen_xthreads)
+        else:
+            unfiltered_fastq = None
+        n_mismatches = 0
+        for record in input_fastq:
+            seqid = record.name
+            if passthrough_mode:
+                # always n_mismatches = 0
+                if verbose:
+                    print("{} (passthrough-mode, keeping)".format(seqid))
+            else:
+            # Illimina sequence identifier in FASTQ files:
+            # see http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+            # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
+            # For the Undetermined FASTQ files only, the sequence observed in the index read is written to the FASTQ header in place of the sample number. This information can be useful for troubleshooting demultiplexing.
+            # grab the sequence index, use simplistic method for efficiency
+                entry_seq_index = seqid.rsplit(":", 1)[1]
+                n_mismatches = sum_mismatches(entry_seq_index, filter_seq_index)
+                if verbose:
+                    print("{} -> index {} -> {} mismatches".format(seqid,
+                                                                   entry_seq_index, n_mismatches))
+            if n_mismatches <= max_mismatches:
+                filtered_reads += 1
+                if filtered_fastq: filtered_fastq.write(record)
+            else:
+                unfiltered_reads += 1
+                if unfiltered_fastq: unfiltered_fastq.write(record)
+            total_reads += 1
+            cumul_n_mismatches[n_mismatches] += 1
+
+    # OUTPUT
+    print("Total reads: {}".format(total_reads))
+    if passthrough_mode:
+        print("Filtered reads: {} (passthrough-mode)".format(filtered_reads))
+    else:
+        print("Filtered reads: {}".format(filtered_reads))
+        print("Unfiltered reads: {}".format(unfiltered_reads))
+        for n_mismatches, cumul_mismatches in enumerate(cumul_n_mismatches):
+            print(" Reads with {} mismatches: {}".format(
+                n_mismatches, cumul_mismatches))
+
+
+if __name__ == '__main__':
+    main()
