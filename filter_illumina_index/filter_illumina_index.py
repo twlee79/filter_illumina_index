@@ -6,7 +6,10 @@ import functools
 import mimetypes
 import gzip
 from functools import partial
-from Bio.SeqIO.QualityIO import FastqGeneralIterator
+
+import dnaio
+import xopen
+
 """
 Filter a Illumina FASTQ file based on index sequence.
 
@@ -31,7 +34,7 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.3.post2'
+_PROGRAM_VERSION = '1.0.4'
 # -------------------------------------------------------------------------------
 # ### Change log
 #
@@ -74,11 +77,14 @@ def main():
     parser.add_argument('--version', action='version',
                         version=_PROGRAM_NAME_VERSION)
     parser.add_argument('inputfile',
-                        help='Input FASTQ file, compression supported')
+                        help='Input FASTQ file, compression (`.gz`, `.bz2` and '
+                        '`.xz`) supported')
     parser.add_argument('-f', '--filtered',
-                        help='Output FASTQ file containing filtered (positive) reads')
+                        help='Output FASTQ file containing filtered (positive) reads; '
+                        'compression detected by extension')
     parser.add_argument('-u', '--unfiltered',
-                        help='Output FASTQ file containing unfiltered (negative) reads')
+                        help='Output FASTQ file containing unfiltered (negative) reads; '
+                        'compression detected by extension')
     parser_required_named.add_argument('-i', '--index', required=True, const='', nargs='?',
                                        help='Sequence index to filter for; if empty '
                                        '(i.e. no argument or "") then program will '
@@ -86,10 +92,13 @@ def main():
                                        'directed to filtered file with no processing')
     parser.add_argument('-m', '--mismatches', default=0, type=int,
                         help='Maximum number of mismatches to tolerate')
-    parser.add_argument('-c', '--compressed', action='store_true',
-                        help='Compress output files (note: file extension not modified)')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Show verbose output')
+    parser.add_argument('-t', '--threads', default=1, type=int,
+                        help='Number of threads to pass to `xopen` for each '
+                        'open file; use 0 to turn off `pigz` use and rely '
+                        'on `gzip.open` so no extra threads spawned.')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help='Increase logging verbosity, available levels 1 to 2 '
+                             'with `-v` to `-vv`')
     args = parser.parse_args()
 
 
@@ -98,6 +107,7 @@ def main():
     out_unfiltered_path = args.unfiltered
     filter_seq_index = args.index
     max_mismatches = args.mismatches
+    threads = args.threads
     verbose = args.verbose
 
     if filter_seq_index == '':
@@ -114,39 +124,11 @@ def main():
     print("Max mismatches tolerated: {}".format(max_mismatches))
     print("Output filtered file: {}".format(out_filtered_path))
     print("Output unfiltered file: {}".format(out_unfiltered_path))
-    if verbose: print("Producing verbose output.")
+    if verbose>=1: print("Using {} threads per open file".format(threads))
+    if verbose>=1: print("Showing verbose level {} logging".format(verbose))
 
 
-    # calculates number of mismatches between s1 and s2
-    def sum_mismatches(s1, s2):
-        if (s1 == s2):
-            return 0  # rely on interning to speed up this comparison
-        else:
-            return sum(c1 != c2 for c1, c2 in zip(s1, s2))
-
-    # writes a fastq entry to handle, avoiding unneeded string formating/concatenation
-
-
-    def write_fastq_entry(handle, title, sequence, quality):
-        handle.write('@')
-        handle.write(title)
-        handle.write('\n')
-        handle.write(sequence)
-        handle.write('\n+\n')
-        handle.write(quality)
-        handle.write('\n')
-
-
-    # openers for input and output files
-    if mimetypes.guess_type(input_path)[1] == 'gzip':
-        input_opener = functools.partial(gzip.open, mode='rt')
-    else:
-        input_opener = functools.partial(open, mode='r')
-
-    if args.compressed:
-        output_opener = functools.partial(gzip.open, mode='wt')
-    else:
-        output_opener = functools.partial(open, mode='w')
+    xopen_xthreads = functools.partial(xopen.xopen, threads=threads)
 
     # PROCESSING
     total_reads = 0
@@ -155,46 +137,47 @@ def main():
     cumul_n_mismatches = [0 for i in range(len(filter_seq_index) + 1)]
     # array for tracking number of mismatches (0-all)
     if passthrough_mode: filtered = True
-    with input_opener(input_path) as input_handle:
+    with dnaio.open(input_path, mode='r', opener=xopen_xthreads) as input_fastq:
         if out_filtered_path:
-            filtered_handle = output_opener(out_filtered_path)
+            filtered_fastq = dnaio.open(out_filtered_path, mode='w', opener=xopen_xthreads)
         else:
-            filtered_handle = None
+            filtered_fastq = None
         if out_unfiltered_path:
-            unfiltered_handle = output_opener(out_unfiltered_path)
+            unfiltered_fastq = dnaio.open(out_unfiltered_path, mode='w', opener=xopen_xthreads)
         else:
-            unfiltered_handle = None
-        for title, sequence, quality in FastqGeneralIterator(input_handle):
+            unfiltered_fastq = None
+        for record in input_fastq:
             total_reads += 1
             if passthrough_mode:
                 # always filtered
-                if verbose:
-                    print("{} (passthrough-mode) (filtered)".format(title))
+                if verbose>=2:
+                    seqid = record.name
+                    print("{} (passthrough-mode) (filtered)".format(seqid))
 
             else:
                 # Illimina sequence identifier in FASTQ files:
                 # see http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
                 # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
                 # For the Undetermined FASTQ files only, the sequence observed in the index read is written to the FASTQ header in place of the sample number. This information can be useful for troubleshooting demultiplexing.
-                # grab the sequence index, use simplistic method for efficiency
-                entry_seq_index = title.rsplit(":", 1)[1]
-                n_mismatches = sum_mismatches(entry_seq_index, filter_seq_index)
+                # grab the sequence index, use simplistic method of value after last : for efficiency
+                seqid = record.name
+                entry_seq_index = seqid[seqid.rfind(':')+1:]
+                n_mismatches = abs(len(entry_seq_index)-len(filter_seq_index))
+                if entry_seq_index!=filter_seq_index:
+                    for c1,c2 in zip(entry_seq_index,filter_seq_index):
+                        if c1!=c2: n_mismatches+=1
                 filtered = (n_mismatches <= max_mismatches)
                 cumul_n_mismatches[n_mismatches] += 1
-                if verbose:
-                    print("{} -> index {} -> {} mismatches ({})".format(title,
+                if verbose>=2:
+                    print("{} -> index {} -> {} mismatches ({})".format(seqid,
                         entry_seq_index, n_mismatches,
                         'filtered' if filtered else 'unfiltered'))
             if filtered:
                 filtered_reads += 1
-                if filtered_handle:
-                    write_fastq_entry(filtered_handle, title,
-                                      sequence, quality)
+                if filtered_fastq: filtered_fastq.write(record)
             else:
                 unfiltered_reads += 1
-                if unfiltered_handle:
-                    write_fastq_entry(unfiltered_handle,
-                                      title, sequence, quality)
+                if unfiltered_fastq: unfiltered_fastq.write(record)
 
 
     # OUTPUT
