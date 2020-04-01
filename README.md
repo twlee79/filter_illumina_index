@@ -11,11 +11,11 @@ a certain number of mismatches (`-m` parameter), and gzip compression for input
 (detected on the basis of file extension) and output (specified using `-c`
 parameter) are supported.
 
-Specifying an empty index, (`-i ""`) enables  'passthrough' mode where all reads
-are directed to the output filtered file with no processing. Passthrough mode is
-useful if this program is part of a workflow that needs to be adapted to files
-that do not have a valid Illumina index, as it allows any processing of this
-program to be skipped.
+Specifying an empty index, (`-i ""` or `-i` with no argumenent) enables
+'passthrough' mode where all reads are directed to the output filtered file with
+no processing. Passthrough mode is useful if this program is part of a workflow
+that needs to be adapted to files that do not have a valid Illumina index, as it
+allows all processing of this program to be skipped.
 
 For information on Illumina sequence identifiers in FASTQ files, see:
 http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
@@ -24,7 +24,7 @@ http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/C
 
 ```
 usage: filter_illumina_index [-h] [--version] [-f FILTERED] [-u UNFILTERED] -i
-                             INDEX [-m MISMATCHES] [-c] [-v]
+                             [INDEX] [-m MISMATCHES] [-c] [-v]
                              inputfile
 
 positional arguments:
@@ -46,11 +46,11 @@ optional arguments:
   -v, --verbose         Show verbose output (default: False)
 
 required named arguments:
-  -i INDEX, --index INDEX
-                        Sequence index to filter for; if empty (i.e. "") then
-                        program will run in "passthrough" mode with all reads
-                        directed to filtered file with no processing (default:
-                        None)
+  -i [INDEX], --index [INDEX]
+                        Sequence index to filter for; if empty (i.e. no
+                        argument or "") then program will run in "passthrough"
+                        mode with all reads directed to filtered file with no
+                        processing (default: None)
 ```
 
 ### Example usage
@@ -68,6 +68,12 @@ no mismatches allowed (default). Reads matching this index will be saved to
 displayed:
 
 ```
+filter_illumina_index 1.0.3.post2
+Input file: srv/example_reads.fastq
+Filtering for sequence index: GATCGTGT
+Max mismatches tolerated: 0
+Output filtered file: var/filtered_reads.fastq
+Output unfiltered file: var/unfiltered_reads.fastq
 Total reads: 30
 Filtered reads: 29
 Unfiltered reads: 1
@@ -93,20 +99,27 @@ Unfiltered reads: 1
 
 ### Change log
 
-version 1.0.3.post1 2020-01-04
-: Bugfix: Bump version number in script
+version 1.0.3.post2 2020-01-04  
+Improved output
+  - Add version number to output
+  - Show parameters in output
+  - Allow no argument for passthrough mode
 
-version 1.0.3 2020-01-04
-: Added `passthrough` mode with empty index.
+version 1.0.3.post1 2020-01-04  
+Minor bugfix
+  - Bugfix: Bump version number in script
 
-version 1.0.2 2018-12-19
-: Shows statistics on number of mismatches found
+version 1.0.3 2020-01-04  
+Added `passthrough` mode with empty index
 
-version 1.0.1 2018-12-19
-: Speed up number of mismatches calculation
+version 1.0.2 2018-12-19  
+Shows statistics on number of mismatches found
 
-version 1.0 2018-12-14
-: Minor updates for PyPi and conda packaging
+version 1.0.1 2018-12-19  
+Speed up number of mismatches calculation
 
-version 1.0.dev1 2018-12-13
-: First working version
+version 1.0 2018-12-14  
+Minor updates for PyPi and conda packaging
+
+version 1.0.dev1 2018-12-13  
+First working version

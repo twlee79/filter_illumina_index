@@ -31,50 +31,59 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.3.post1'
+_PROGRAM_VERSION = '1.0.3.post2'
 # -------------------------------------------------------------------------------
 # ### Change log
 #
+# version 1.0.3.post2 2020-01-04
+# Improved output
+#   - Add version number to output
+#   - Show parameters in output
+#   - Allow no argument for passthrough mode
+#
 # version 1.0.3.post1 2020-01-04
-# : Bugfix: Bump version number in script
+# Minor bugfix
+#   - Bugfix: Bump version number in script
 #
 # version 1.0.3 2020-01-04
-# : Added `passthrough` mode with empty index.
+# Added `passthrough` mode with empty index
 #
 # version 1.0.2 2018-12-19
-# : Shows statistics on number of mismatches found
+# Shows statistics on number of mismatches found
 #
 # version 1.0.1 2018-12-19
-# : Speed up number of mismatches calculation
+# Speed up number of mismatches calculation
 #
 # version 1.0 2018-12-14
-# : Minor updates for PyPi and conda packaging
+# Minor updates for PyPi and conda packaging
 #
 # version 1.0.dev1 2018-12-13
-# : First working version
+# First working version
+#
 # -------------------------------------------------------------------------------
 
 
 # INITIALISATION
 
 def main():
+    _PROGRAM_NAME_VERSION = '{} {}'.format(_PROGRAM_NAME, _PROGRAM_VERSION)
     parser = argparse.ArgumentParser(prog=_PROGRAM_NAME,
                                      description=__doc__,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_required_named = parser.add_argument_group('required named arguments')
     parser.add_argument('--version', action='version',
-                        version='{} {}'.format(_PROGRAM_NAME, _PROGRAM_VERSION))
+                        version=_PROGRAM_NAME_VERSION)
     parser.add_argument('inputfile',
                         help='Input FASTQ file, compression supported')
     parser.add_argument('-f', '--filtered',
                         help='Output FASTQ file containing filtered (positive) reads')
     parser.add_argument('-u', '--unfiltered',
                         help='Output FASTQ file containing unfiltered (negative) reads')
-    parser_required_named.add_argument('-i', '--index', required=True,
+    parser_required_named.add_argument('-i', '--index', required=True, const='', nargs='?',
                                        help='Sequence index to filter for; if empty '
-                                       '(i.e. "") then program will run in "passthrough" mode '
-                                       'with all reads directed to filtered file with no '
-                                       'processing')
+                                       '(i.e. no argument or "") then program will '
+                                       'run in "passthrough" mode with all reads '
+                                       'directed to filtered file with no processing')
     parser.add_argument('-m', '--mismatches', default=0, type=int,
                         help='Maximum number of mismatches to tolerate')
     parser.add_argument('-c', '--compressed', action='store_true',
@@ -91,12 +100,22 @@ def main():
     max_mismatches = args.mismatches
     verbose = args.verbose
 
-    # HELPER FUNCTIONS
     if filter_seq_index == '':
-        if verbose: print ('Empty index provided: Passthrough mode enabled and directing all reads to output filtered file with no processing.')
         passthrough_mode = True
+        max_mismatches = float('NaN')
     else:
         passthrough_mode = False
+
+    # HELPER FUNCTIONS
+    print(_PROGRAM_NAME_VERSION)
+    print("Input file: {}".format(input_path))
+    print("Filtering for sequence index: {}{}".format(filter_seq_index,
+        "(passthrough mode)" if passthrough_mode else ""))
+    print("Max mismatches tolerated: {}".format(max_mismatches))
+    print("Output filtered file: {}".format(out_filtered_path))
+    print("Output unfiltered file: {}".format(out_unfiltered_path))
+    if verbose: print("Producing verbose output.")
+
 
     # calculates number of mismatches between s1 and s2
     def sum_mismatches(s1, s2):
@@ -135,6 +154,7 @@ def main():
     unfiltered_reads = 0
     cumul_n_mismatches = [0 for i in range(len(filter_seq_index) + 1)]
     # array for tracking number of mismatches (0-all)
+    if passthrough_mode: filtered = True
     with input_opener(input_path) as input_handle:
         if out_filtered_path:
             filtered_handle = output_opener(out_filtered_path)
@@ -144,24 +164,28 @@ def main():
             unfiltered_handle = output_opener(out_unfiltered_path)
         else:
             unfiltered_handle = None
-        n_mismatches = 0
         for title, sequence, quality in FastqGeneralIterator(input_handle):
+            total_reads += 1
             if passthrough_mode:
-                # always n_mismatches = 0
+                # always filtered
                 if verbose:
-                    print("{} (passthrough-mode, keeping)".format(title))
+                    print("{} (passthrough-mode) (filtered)".format(title))
+
             else:
-            # Illimina sequence identifier in FASTQ files:
-            # see http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
-            # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
-            # For the Undetermined FASTQ files only, the sequence observed in the index read is written to the FASTQ header in place of the sample number. This information can be useful for troubleshooting demultiplexing.
-            # grab the sequence index, use simplistic method for efficiency
+                # Illimina sequence identifier in FASTQ files:
+                # see http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+                # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
+                # For the Undetermined FASTQ files only, the sequence observed in the index read is written to the FASTQ header in place of the sample number. This information can be useful for troubleshooting demultiplexing.
+                # grab the sequence index, use simplistic method for efficiency
                 entry_seq_index = title.rsplit(":", 1)[1]
                 n_mismatches = sum_mismatches(entry_seq_index, filter_seq_index)
+                filtered = (n_mismatches <= max_mismatches)
+                cumul_n_mismatches[n_mismatches] += 1
                 if verbose:
-                    print("{} -> index {} -> {} mismatches".format(title,
-                                                                   entry_seq_index, n_mismatches))
-            if n_mismatches <= max_mismatches:
+                    print("{} -> index {} -> {} mismatches ({})".format(title,
+                        entry_seq_index, n_mismatches,
+                        'filtered' if filtered else 'unfiltered'))
+            if filtered:
                 filtered_reads += 1
                 if filtered_handle:
                     write_fastq_entry(filtered_handle, title,
@@ -171,8 +195,7 @@ def main():
                 if unfiltered_handle:
                     write_fastq_entry(unfiltered_handle,
                                       title, sequence, quality)
-            total_reads += 1
-            cumul_n_mismatches[n_mismatches] += 1
+
 
     # OUTPUT
     print("Total reads: {}".format(total_reads))
