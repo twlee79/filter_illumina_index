@@ -31,7 +31,7 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.2'
+_PROGRAM_VERSION = '1.0.3'
 # -------------------------------------------------------------------------------
 # ### Change log
 #
