@@ -31,9 +31,12 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Dependencies: Biopython, tested on v1.72
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.3'
+_PROGRAM_VERSION = '1.0.3.post1'
 # -------------------------------------------------------------------------------
 # ### Change log
+#
+# version 1.0.3.post1 2020-01-04
+# : Bugfix: Bump version number in script
 #
 # version 1.0.3 2020-01-04
 # : Added `passthrough` mode with empty index.

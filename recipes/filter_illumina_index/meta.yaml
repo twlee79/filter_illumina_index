@@ -1,8 +1,8 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.3" %}
+{% set version = "1.0.3.post1" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "ed9506f24a4930e89e437b9b0f62402478836ef829a2b92a2f837986c3a7d485" %}
+{% set hash_value = "b35f360fd0b0f3b3bfa492781ef9b35644c75a2cf55f122f135c187e1524ec55" %}
 
 package:
   name: '{{ name|lower }}'

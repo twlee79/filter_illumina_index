@@ -87,11 +87,14 @@ Unfiltered reads: 1
 ### Additional details
 
 * Author:       Tet Woo Lee
-* Copyright:    © 2018 Tet Woo Lee
+* Copyright:    © 2018-2020 Tet Woo Lee
 * Licence:      GPLv3
 * Dependencies: Biopython, tested on v1.72
 
 ### Change log
+
+version 1.0.3.post1 2020-01-04
+: Bugfix: Bump version number in script
 
 version 1.0.3 2020-01-04
 : Added `passthrough` mode with empty index.
