@@ -11,7 +11,14 @@ a certain number of mismatches (`-m` parameter), and gzip compression for input
 (detected on the basis of file extension) and output (specified using `-c`
 parameter) are supported.
 
-For information on Illumina sequence identifiers in FASTQ files, see: http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+Specifying an empty index, (`-i ""`) enables  'passthrough' mode where all reads
+are directed to the output filtered file with no processing. Passthrough mode is
+useful if this program is part of a workflow that needs to be adapted to files
+that do not have a valid Illumina index, as it allows any processing of this
+program to be skipped.
+
+For information on Illumina sequence identifiers in FASTQ files, see:
+http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
 
 ### Usage details
 
@@ -33,14 +40,17 @@ optional arguments:
                         Output FASTQ file containing unfiltered (negative)
                         reads (default: None)
   -m MISMATCHES, --mismatches MISMATCHES
-                        Maximum number of mismatches to accept (default: 0)
+                        Maximum number of mismatches to tolerate (default: 0)
   -c, --compressed      Compress output files (note: file extension not
                         modified) (default: False)
   -v, --verbose         Show verbose output (default: False)
 
 required named arguments:
   -i INDEX, --index INDEX
-                        Sequence index to filter for (default: None)
+                        Sequence index to filter for; if empty (i.e. "") then
+                        program will run in "passthrough" mode with all reads
+                        directed to filtered file with no processing (default:
+                        None)
 ```
 
 ### Example usage
@@ -51,7 +61,11 @@ To test, run:
 
 `filter_illumina_index srv/example_reads.fastq --index GATCGTGT --filtered var/filtered_reads.fastq --unfiltered var/unfiltered_reads.fastq`
 
-This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with no mismatches allowed (default). Reads matching this index will be saved to `var/filtered_reads.fastq` and those not matching this index will be saved to  `var/unfiltered_reads.fastq`. In addition, the following output will be displayed:
+This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with
+no mismatches allowed (default). Reads matching this index will be saved to
+`var/filtered_reads.fastq` and those not matching this index will be saved to
+`var/unfiltered_reads.fastq`. In addition, the following output will be
+displayed:
 
 ```
 Total reads: 30
@@ -78,6 +92,9 @@ Unfiltered reads: 1
 * Dependencies: Biopython, tested on v1.72
 
 ### Change log
+
+version 1.0.3 2020-01-04
+: Added `passthrough` mode with empty index.
 
 version 1.0.2 2018-12-19
 : Shows statistics on number of mismatches found

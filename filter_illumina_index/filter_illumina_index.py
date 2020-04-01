@@ -35,6 +35,9 @@ _PROGRAM_VERSION = '1.0.2'
 # -------------------------------------------------------------------------------
 # ### Change log
 #
+# version 1.0.3 2020-01-04
+# : Added `passthrough` mode with empty index.
+#
 # version 1.0.2 2018-12-19
 # : Shows statistics on number of mismatches found
 #
@@ -51,74 +54,79 @@ _PROGRAM_VERSION = '1.0.2'
 
 # INITIALISATION
 
-parser = argparse.ArgumentParser(prog=_PROGRAM_NAME,
-                                 description=__doc__,
-                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser_required_named = parser.add_argument_group('required named arguments')
-parser.add_argument('--version', action='version',
-                    version='{} {}'.format(_PROGRAM_NAME, _PROGRAM_VERSION))
-parser.add_argument('inputfile',
-                    help='Input FASTQ file, compression supported')
-parser.add_argument('-f', '--filtered',
-                    help='Output FASTQ file containing filtered (positive) reads')
-parser.add_argument('-u', '--unfiltered',
-                    help='Output FASTQ file containing unfiltered (negative) reads')
-parser_required_named.add_argument('-i', '--index', required=True,
-                                   help='Sequence index to filter for')
-parser.add_argument('-m', '--mismatches', default=0, type=int,
-                    help='Maximum number of mismatches to tolerate')
-parser.add_argument('-c', '--compressed', action='store_true',
-                    help='Compress output files (note: file extension not modified)')
-parser.add_argument('-v', '--verbose', action='store_true',
-                    help='Show verbose output')
-args = parser.parse_args()
-
-
-input_path = args.inputfile
-out_filtered_path = args.filtered
-out_unfiltered_path = args.unfiltered
-filter_seq_index = args.index
-max_mismatches = args.mismatches
-verbose = args.verbose
-
-# HELPER FUNCTIONS
-# calculates number of mismatches between s1 and s2
-
-
-def sum_mismatches(s1, s2):
-    if (s1 == s2):
-        return 0  # rely on interning to speed up this comparison
-    else:
-        return sum(c1 != c2 for c1, c2 in zip(s1, s2))
-
-# writes a fastq entry to handle, avoiding unneeded string formating/concatenation
-
-
-def write_fastq_entry(handle, title, sequence, quality):
-    handle.write('@')
-    handle.write(title)
-    handle.write('\n')
-    handle.write(sequence)
-    handle.write('\n+\n')
-    handle.write(quality)
-    handle.write('\n')
-
-
-# openers for input and output files
-if mimetypes.guess_type(input_path)[1] == 'gzip':
-    input_opener = functools.partial(gzip.open, mode='rt')
-else:
-    input_opener = functools.partial(open, mode='r')
-
-if args.compressed:
-    output_opener = functools.partial(gzip.open, mode='wt')
-else:
-    output_opener = functools.partial(open, mode='w')
-
-# PROCESSING
-
-
 def main():
+    parser = argparse.ArgumentParser(prog=_PROGRAM_NAME,
+                                     description=__doc__,
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_required_named = parser.add_argument_group('required named arguments')
+    parser.add_argument('--version', action='version',
+                        version='{} {}'.format(_PROGRAM_NAME, _PROGRAM_VERSION))
+    parser.add_argument('inputfile',
+                        help='Input FASTQ file, compression supported')
+    parser.add_argument('-f', '--filtered',
+                        help='Output FASTQ file containing filtered (positive) reads')
+    parser.add_argument('-u', '--unfiltered',
+                        help='Output FASTQ file containing unfiltered (negative) reads')
+    parser_required_named.add_argument('-i', '--index', required=True,
+                                       help='Sequence index to filter for; if empty '
+                                       '(i.e. "") then program will run in "passthrough" mode '
+                                       'with all reads directed to filtered file with no '
+                                       'processing')
+    parser.add_argument('-m', '--mismatches', default=0, type=int,
+                        help='Maximum number of mismatches to tolerate')
+    parser.add_argument('-c', '--compressed', action='store_true',
+                        help='Compress output files (note: file extension not modified)')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Show verbose output')
+    args = parser.parse_args()
+
+
+    input_path = args.inputfile
+    out_filtered_path = args.filtered
+    out_unfiltered_path = args.unfiltered
+    filter_seq_index = args.index
+    max_mismatches = args.mismatches
+    verbose = args.verbose
+
+    # HELPER FUNCTIONS
+    if filter_seq_index == '':
+        if verbose: print ('Empty index provided: Passthrough mode enabled and directing all reads to output filtered file with no processing.')
+        passthrough_mode = True
+    else:
+        passthrough_mode = False
+
+    # calculates number of mismatches between s1 and s2
+    def sum_mismatches(s1, s2):
+        if (s1 == s2):
+            return 0  # rely on interning to speed up this comparison
+        else:
+            return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+
+    # writes a fastq entry to handle, avoiding unneeded string formating/concatenation
+
+
+    def write_fastq_entry(handle, title, sequence, quality):
+        handle.write('@')
+        handle.write(title)
+        handle.write('\n')
+        handle.write(sequence)
+        handle.write('\n+\n')
+        handle.write(quality)
+        handle.write('\n')
+
+
+    # openers for input and output files
+    if mimetypes.guess_type(input_path)[1] == 'gzip':
+        input_opener = functools.partial(gzip.open, mode='rt')
+    else:
+        input_opener = functools.partial(open, mode='r')
+
+    if args.compressed:
+        output_opener = functools.partial(gzip.open, mode='wt')
+    else:
+        output_opener = functools.partial(open, mode='w')
+
+    # PROCESSING
     total_reads = 0
     filtered_reads = 0
     unfiltered_reads = 0
@@ -133,17 +141,23 @@ def main():
             unfiltered_handle = output_opener(out_unfiltered_path)
         else:
             unfiltered_handle = None
+        n_mismatches = 0
         for title, sequence, quality in FastqGeneralIterator(input_handle):
+            if passthrough_mode:
+                # always n_mismatches = 0
+                if verbose:
+                    print("{} (passthrough-mode, keeping)".format(title))
+            else:
             # Illimina sequence identifier in FASTQ files:
             # see http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
             # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
             # For the Undetermined FASTQ files only, the sequence observed in the index read is written to the FASTQ header in place of the sample number. This information can be useful for troubleshooting demultiplexing.
             # grab the sequence index, use simplistic method for efficiency
-            entry_seq_index = title.rsplit(":", 1)[1]
-            n_mismatches = sum_mismatches(entry_seq_index, filter_seq_index)
-            if verbose:
-                print("{} -> index {} -> {} mismatches".format(title,
-                                                               entry_seq_index, n_mismatches))
+                entry_seq_index = title.rsplit(":", 1)[1]
+                n_mismatches = sum_mismatches(entry_seq_index, filter_seq_index)
+                if verbose:
+                    print("{} -> index {} -> {} mismatches".format(title,
+                                                                   entry_seq_index, n_mismatches))
             if n_mismatches <= max_mismatches:
                 filtered_reads += 1
                 if filtered_handle:
@@ -159,11 +173,14 @@ def main():
 
     # OUTPUT
     print("Total reads: {}".format(total_reads))
-    print("Filtered reads: {}".format(filtered_reads))
-    print("Unfiltered reads: {}".format(unfiltered_reads))
-    for n_mismatches, cumul_mismatches in enumerate(cumul_n_mismatches):
-        print(" Reads with {} mismatches: {}".format(
-            n_mismatches, cumul_mismatches))
+    if passthrough_mode:
+        print("Filtered reads: {} (passthrough-mode)".format(filtered_reads))
+    else:
+        print("Filtered reads: {}".format(filtered_reads))
+        print("Unfiltered reads: {}".format(unfiltered_reads))
+        for n_mismatches, cumul_mismatches in enumerate(cumul_n_mismatches):
+            print(" Reads with {} mismatches: {}".format(
+                n_mismatches, cumul_mismatches))
 
 
 if __name__ == '__main__':

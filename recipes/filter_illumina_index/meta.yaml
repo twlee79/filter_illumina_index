@@ -1,28 +1,31 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.2" %}
-{% set sha256 = "70faeda8dacfe1161f79823af03f4f1337b4d8a302a49dba33227674defd2461" %}
+{% set version = "1.0.3" %}
+{% set file_ext = "tar.gz" %}
+{% set hash_type = "sha256" %}
+{% set hash_value = "ed9506f24a4930e89e437b9b0f62402478836ef829a2b92a2f837986c3a7d485" %}
 
 package:
-  name: "{{ name|lower }}"
-  version: "{{ version }}"
+  name: '{{ name|lower }}'
+  version: '{{ version }}'
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: {{ sha256 }}
+  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
+  '{{ hash_type }}': '{{ hash_value }}'
 
 build:
-  number: 0
+  number: 1
   entry_points:
     - filter_illumina_index = filter_illumina_index.filter_illumina_index:main
-  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv "
+  script: python setup.py install --single-version-externally-managed --record=record.txt
 
 requirements:
   host:
-    - pip
-    - biopython
+    - setuptools
+    - biopython >=1.72
     - python
   run:
-    - biopython
+    - biopython >=1.72
     - python
 
 test:
@@ -37,6 +40,7 @@ about:
   license_family: GPL3
   license_file: 'LICENSE'
   summary: Filter a Illumina FASTQ file based on index sequence
+  description: Reads a Illumina FASTQ file and compares the sequence index in the sample number position of the sequence identifier to a supplied sequence index. Entries that match the sequence index are filtered into the filtered file (if any) and entries that don't match are filtered into the unfiltered file (if any). Displays the count of total, filtered and unfiltered reads, as well as the number of mismatches found across all reads.
 
 extra:
   recipe-maintainers:
