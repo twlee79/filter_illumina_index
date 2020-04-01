@@ -31,12 +31,20 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Copyright:    © 2018 Tet Woo Lee
 # Licence:      GPLv3
 #
-# Dependencies: Biopython, tested on v1.72
+# Dependencies: dnaio, tested with v0.4.1
+#               xopen, tested with v0.8.4
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.4'
+_PROGRAM_VERSION = '1.0.4.dev1'
 # -------------------------------------------------------------------------------
 # ### Change log
+#
+# version 1.0.4 2020-01-04
+# Speed up and algorithm changes
+#   - Switch to `dnaio` over Biopython to improve speed (>3x faster + multi-
+#     threading support for compression)
+#   - Change mismatch calculation algorithm, now includes any characters
+#     missing in filter-by index or read index
 #
 # version 1.0.3.post2 2020-01-04
 # Improved output
@@ -106,13 +114,13 @@ def main():
     out_filtered_path = args.filtered
     out_unfiltered_path = args.unfiltered
     filter_seq_index = args.index
-    max_mismatches = args.mismatches
+    max_tolerated_mismatches = args.mismatches
     threads = args.threads
     verbose = args.verbose
 
     if filter_seq_index == '':
         passthrough_mode = True
-        max_mismatches = float('NaN')
+        max_tolerated_mismatches = float('NaN')
     else:
         passthrough_mode = False
 
@@ -121,7 +129,7 @@ def main():
     print("Input file: {}".format(input_path))
     print("Filtering for sequence index: {}{}".format(filter_seq_index,
         "(passthrough mode)" if passthrough_mode else ""))
-    print("Max mismatches tolerated: {}".format(max_mismatches))
+    print("Max mismatches tolerated: {}".format(max_tolerated_mismatches))
     print("Output filtered file: {}".format(out_filtered_path))
     print("Output unfiltered file: {}".format(out_unfiltered_path))
     if verbose>=1: print("Using {} threads per open file".format(threads))
@@ -134,8 +142,11 @@ def main():
     total_reads = 0
     filtered_reads = 0
     unfiltered_reads = 0
-    cumul_n_mismatches = [0 for i in range(len(filter_seq_index) + 1)]
-    # array for tracking number of mismatches (0-all)
+    max_tracked_mismatches = len(filter_seq_index)
+    cumul_n_mismatches = [0 for i in range(max_tracked_mismatches + 2)]
+    # array for tracking number of mismatches (0-indexlen,>indexlen+1)
+    # >indexlen+1 is required because we define mismatch to include extra
+    # characters from desired index OR read index, which may be longer
     if passthrough_mode: filtered = True
     with dnaio.open(input_path, mode='r', opener=xopen_xthreads) as input_fastq:
         if out_filtered_path:
@@ -166,7 +177,9 @@ def main():
                 if entry_seq_index!=filter_seq_index:
                     for c1,c2 in zip(entry_seq_index,filter_seq_index):
                         if c1!=c2: n_mismatches+=1
-                filtered = (n_mismatches <= max_mismatches)
+                filtered = (n_mismatches <= max_tolerated_mismatches)
+                if n_mismatches>=max_tracked_mismatches:
+                    n_mismatches = max_tracked_mismatches+1
                 cumul_n_mismatches[n_mismatches] += 1
                 if verbose>=2:
                     print("{} -> index {} -> {} mismatches ({})".format(seqid,
@@ -188,7 +201,8 @@ def main():
         print("Filtered reads: {}".format(filtered_reads))
         print("Unfiltered reads: {}".format(unfiltered_reads))
         for n_mismatches, cumul_mismatches in enumerate(cumul_n_mismatches):
-            print(" Reads with {} mismatches: {}".format(
+            print(" Reads with {}{} mismatches: {}".format(
+                '' if n_mismatches<= max_tracked_mismatches else '>=',
                 n_mismatches, cumul_mismatches))
 
 
