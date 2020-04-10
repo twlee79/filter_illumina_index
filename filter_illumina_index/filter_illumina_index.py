@@ -32,7 +32,7 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Licence:      GPLv3
 #
 # Dependencies: dnaio, tested with v0.4.1
-#               xopen, tested with v0.8.4
+#               xopen, tested with v0.9.0
 # -------------------------------------------------------------------------------
 
 _PROGRAM_VERSION = '1.0.4.dev1'
@@ -73,10 +73,14 @@ _PROGRAM_VERSION = '1.0.4.dev1'
 #
 # -------------------------------------------------------------------------------
 
+# TODO: tests
 
 # INITIALISATION
 
-def main():
+def main(argv = None, return_result = False):
+        # return_result = True will return summary of output to caller (for testing)
+    if argv is None: argv = sys.argv[1:] # if parameters not provided, use sys.argv
+
     _PROGRAM_NAME_VERSION = '{} {}'.format(_PROGRAM_NAME, _PROGRAM_VERSION)
     parser = argparse.ArgumentParser(prog=_PROGRAM_NAME,
                                      description=__doc__,
@@ -104,10 +108,13 @@ def main():
                         help='Number of threads to pass to `xopen` for each '
                         'open file; use 0 to turn off `pigz` use and rely '
                         'on `gzip.open` so no extra threads spawned.')
+    parser.add_argument('-l', '--compresslevel', default=6, type=int, choices=range(1,10),
+                        help='Compression level for writing gzip files; '
+                        'ignored if gzip compression not used')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase logging verbosity, available levels 1 to 2 '
                              'with `-v` to `-vv`')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
 
     input_path = args.inputfile
@@ -116,6 +123,7 @@ def main():
     filter_seq_index = args.index
     max_tolerated_mismatches = args.mismatches
     threads = args.threads
+    compresslevel = args.compresslevel
     verbose = args.verbose
 
     if filter_seq_index == '':
@@ -132,11 +140,14 @@ def main():
     print("Max mismatches tolerated: {}".format(max_tolerated_mismatches))
     print("Output filtered file: {}".format(out_filtered_path))
     print("Output unfiltered file: {}".format(out_unfiltered_path))
-    if verbose>=1: print("Using {} threads per open file".format(threads))
-    if verbose>=1: print("Showing verbose level {} logging".format(verbose))
+    if verbose>=1:
+        print("Using {} threads per open file".format(threads))
+        print("Compression level: {}".format(compresslevel))
+        print("Showing verbose level {} logging".format(verbose))
 
 
-    xopen_xthreads = functools.partial(xopen.xopen, threads=threads)
+    xopen_xthreads = functools.partial(xopen.xopen, threads=threads,
+                                       compresslevel = compresslevel)
 
     # PROCESSING
     total_reads = 0
@@ -178,19 +189,21 @@ def main():
                     for c1,c2 in zip(entry_seq_index,filter_seq_index):
                         if c1!=c2: n_mismatches+=1
                 filtered = (n_mismatches <= max_tolerated_mismatches)
-                if n_mismatches>=max_tracked_mismatches:
-                    n_mismatches = max_tracked_mismatches+1
-                cumul_n_mismatches[n_mismatches] += 1
                 if verbose>=2:
                     print("{} -> index {} -> {} mismatches ({})".format(seqid,
                         entry_seq_index, n_mismatches,
                         'filtered' if filtered else 'unfiltered'))
+                if n_mismatches>=max_tracked_mismatches:
+                    n_mismatches = max_tracked_mismatches+1
+                cumul_n_mismatches[n_mismatches] += 1
             if filtered:
                 filtered_reads += 1
                 if filtered_fastq: filtered_fastq.write(record)
             else:
                 unfiltered_reads += 1
                 if unfiltered_fastq: unfiltered_fastq.write(record)
+        if filtered_fastq: filtered_fastq.close()
+        if unfiltered_fastq: unfiltered_fastq.close()
 
 
     # OUTPUT
@@ -205,6 +218,15 @@ def main():
                 '' if n_mismatches<= max_tracked_mismatches else '>=',
                 n_mismatches, cumul_mismatches))
 
+    if return_result: 
+        results = {
+            "total" : total_reads,
+            "filtered": filtered_reads,
+            "unfiltered": unfiltered_reads,
+            "mismatches": {n_mismatches : cumul_mismatches 
+                          for n_mismatches,cumul_mismatches in enumerate(cumul_n_mismatches)}
+        }
+        return(results)
 
 if __name__ == '__main__':
     main()

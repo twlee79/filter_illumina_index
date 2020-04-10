@@ -88,6 +88,80 @@ Unfiltered reads: 1
  Reads with 8 mismatches: 0
 ```
 
+### Algorithm details
+
+The barcode is read from the sequence number position of the sequence identifier
+using a very simplistic method to optimise performance: the field in the
+sequence identifier following the last colon (`:`) character is used, e.g.
+
+```
+@FAKE-SEQ:1:FAKE-FLOWCELL-ID:1:1:0:1 1:N:0:TGACCAAT
+                                          ^         : last colon
+                                           ^^^^^^^^ : taken
+                                           TGACCAAT : barcode
+```
+
+The number of mismatches is simply the number of characters that differ between
+the provided index sequence and the barcode from the read. Any missing
+characters in either the provided index or the barcode are counted as
+mismatches. The comparison is performed at the start of the each set of
+characters with no provision for wildcards, insertions or deletions, e.g.
+
+```
+TGACCAAT index
+TGACCAAT read barcode
+         0 mismatches
+
+TGACCAAT index
+AGACCAAT read barcode
+^        1 mismatch
+
+TGACCAAT index
+GACCAAT  read barcode
+^^^ ^ ^^ 6 mismatches
+
+TGACCAAT index
+TGACCAAAA read barcode
+       ^^ 2 mismatches
+
+TGACCAAT index
+NNNCCAAT read barcode
+^^^      3 mismatches
+
+NNNCCAAT index
+TGACCAAT read barcode
+^^^      3 mismatches
+
+NNNCCAAT index
+NNNCCAAT read barcode
+         0 mismatches
+
+TGACCAAT index
+TGACCAATTGACCAATTGACCAAT read barcode
+        ^^^^^^^^^^^^^^^^ 16 mismatches
+```
+
+Where there is a greater number of characters in the read barcode than the
+provided index, the number of mismatches is summarised as `>=index length+1`,
+i.e. the final entry above will be counted as >=9 mismatches.
+
+### File reading/writing and threading
+
+This script uses the `dnaio` and `xopen` packages for reading/writing FASTQ
+files with compression support. The `xopen` package used for reading/writing
+compressed files spawns `pigz` processes to speed-up processing. The `--threads`
+parameter indicates the number of threads passed to the `xopen()` function. With
+`--threads 1` there is still a small amount of multithreading as a different
+`pigz` process is spawned for each open file and up to 3 files are open at once
+(one input and two output), although this is largely throttled by the sequential
+nature of the script processing. To prevent these `pigz` processes being
+spawned, `--threads 0` can be used, which causes a fallback to `gzip.open` at
+an additional performance cost (it is slower than `pigz`).
+
+`xopen` supports automatic compression according to the file extension, with
+`.gz`, `.bz2` and `.xz` supported. Only the first of these has been tested
+with this script but the others are expected to work without issue.
+
 ---
 
 ### Additional details
@@ -95,7 +169,10 @@ Unfiltered reads: 1
 * Author:       Tet Woo Lee
 * Copyright:    © 2018-2020 Tet Woo Lee
 * Licence:      GPLv3
-* Dependencies: Biopython, tested on v1.72
+* Dependencies:  
+  dnaio, tested with v0.4.1  
+  xopen, tested with v0.8.4
+
 
 ### Change log
 
