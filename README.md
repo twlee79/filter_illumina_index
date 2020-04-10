@@ -55,25 +55,19 @@ required named arguments:
 
 ### Example usage
 
-The directory `srv` contains example reads in FASTQ and compressed FASTQ format with index `GATCGTGT` and one read with a mismatch.
+The directory `` contains example reads in FASTQ and compressed FASTQ format with index `GATCGTGT` and one read with a mismatch.
 
 To test, run:
 
-`filter_illumina_index srv/example_reads.fastq --index GATCGTGT --filtered var/filtered_reads.fastq --unfiltered var/unfiltered_reads.fastq`
+`filter_illumina_index usr/example_reads.fastq --index GATCGTGT --filtered var/filtered_reads.fastq --unfiltered var/unfiltered_reads.fastq`
 
-This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with
-no mismatches allowed (default). Reads matching this index will be saved to
-`var/filtered_reads.fastq` and those not matching this index will be saved to
-`var/unfiltered_reads.fastq`. In addition, the following output will be
-displayed:
-
-```
-filter_illumina_index 1.0.3.post2
-Input file: srv/example_reads.fastq
+python filter_illumina_index/filter_illumina_index.py usr/example_reads.fastq --index GATCGTGT 
+filter_illumina_index 1.0.4.dev1
+Input file: usr/example_reads.fastq
 Filtering for sequence index: GATCGTGT
 Max mismatches tolerated: 0
-Output filtered file: var/filtered_reads.fastq
-Output unfiltered file: var/unfiltered_reads.fastq
+Output filtered file: None
+Output unfiltered file: None
 Total reads: 30
 Filtered reads: 29
 Unfiltered reads: 1
@@ -86,6 +80,34 @@ Unfiltered reads: 1
  Reads with 6 mismatches: 0
  Reads with 7 mismatches: 0
  Reads with 8 mismatches: 0
+ Reads with >=9 mismatches: 0
+
+This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with
+no mismatches allowed (default). Reads matching this index will be saved to
+`var/filtered_reads.fastq` and those not matching this index will be saved to
+`var/unfiltered_reads.fastq`. In addition, the following output will be
+displayed:
+
+```
+filter_illumina_index 1.0.4.dev1
+Input file: usr/example_reads.fastq
+Filtering for sequence index: GATCGTGT
+Max mismatches tolerated: 0
+Output filtered file: None
+Output unfiltered file: None
+Total reads: 30
+Filtered reads: 29
+Unfiltered reads: 1
+ Reads with 0 mismatches: 29
+ Reads with 1 mismatches: 1
+ Reads with 2 mismatches: 0
+ Reads with 3 mismatches: 0
+ Reads with 4 mismatches: 0
+ Reads with 5 mismatches: 0
+ Reads with 6 mismatches: 0
+ Reads with 7 mismatches: 0
+ Reads with 8 mismatches: 0
+ Reads with >=9 mismatches: 0
 ```
 
 ### Algorithm details

@@ -5,6 +5,7 @@ import argparse
 import functools
 import mimetypes
 import gzip
+import sys
 from functools import partial
 
 import dnaio

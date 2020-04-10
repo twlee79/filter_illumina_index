@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import setuptools
 
 with open("README.md", "r") as fh:
@@ -5,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="filter_illumina_index",
-    version="1.0.3.post2",
+    version="1.0.4.dev1",
     author="Tet Woo Lee",
     author_email="developer@twlee.nz",
     description="Filter a Illumina FASTQ file based on index sequence",
@@ -13,8 +16,15 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/twlee79/filter_illumina_index",
     packages=setuptools.find_packages(),
+    package_data={'filter_illumina_index.tests': ['data/*.fastq',
+                                                  'data/*.fastq.gz',
+                                                  'data/results/*.fastq',
+                                                  'data/results/*.fastq.gz',
+                                                  'data/results/*.json']
+                                                  },
     install_requires=[
-        'biopython',
+        'xopen >=v0.9.0',
+        'dnaio >=v0.4.1'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -26,5 +36,6 @@ setuptools.setup(
             'filter_illumina_index = filter_illumina_index.filter_illumina_index:main',
         ],
     },
-    data_files=[("", ["LICENSE"])],
+    test_suite="filter_illumina_index.tests",
+    data_files=[("license", ["LICENSE"])],
 )

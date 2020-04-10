@@ -1,8 +1,8 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.3.post2" %}
+{% set version = "1.0.4.dev1" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "fcc0a007f2ab17496b7f7a9b3fbf28c12c01a9aeabc02731ccbb89981fe3412e" %}
+{% set hash_value = "78ad75cbd8b4408b2ae5d24013b7b5e06e7a5b4b17aefeb4b164636aa7f4ffc5" %}
 
 package:
   name: '{{ name|lower }}'
@@ -14,7 +14,7 @@ source:
   '{{ hash_type }}': '{{ hash_value }}'
 
 build:
-  number: 1
+  number: 0
   entry_points:
     - filter_illumina_index = filter_illumina_index.filter_illumina_index:main
   script: python setup.py install --single-version-externally-managed --record=record.txt
@@ -22,17 +22,27 @@ build:
 requirements:
   host:
     - setuptools
-    - biopython >=1.72
+    - xopen >=v0.9.0
+    - dnaio >=v0.4.1
     - python
   run:
-    - biopython >=1.72
+    - xopen >=v0.9.0
+    - dnaio >=v0.4.1
     - python
 
 test:
+  source_files:
+    - filter_illumina_index/tests/data/*.fastq
+    - filter_illumina_index/tests/data/*.fastq.gz
+    - filter_illumina_index/tests/data/results/*.fastq
+    - filter_illumina_index/tests/data/results/*.fastq.gz
+    - filter_illumina_index/tests/data/results/*.json
   imports:
     - filter_illumina_index
+    - filter_illumina_index.tests
   commands:
     - filter_illumina_index --help
+    - python -m filter_illumina_index.tests.test_filter_illumina_index
 
 about:
   home: https://github.com/twlee79/filter_illumina_index
@@ -40,7 +50,13 @@ about:
   license_family: GPL3
   license_file: 'LICENSE'
   summary: Filter a Illumina FASTQ file based on index sequence
-  description: Reads a Illumina FASTQ file and compares the sequence index in the sample number position of the sequence identifier to a supplied sequence index. Entries that match the sequence index are filtered into the filtered file (if any) and entries that don't match are filtered into the unfiltered file (if any). Displays the count of total, filtered and unfiltered reads, as well as the number of mismatches found across all reads.
+  description: > 
+    Reads a Illumina FASTQ file and compares the sequence index in the sample 
+    number position of the sequence identifier to a supplied sequence index. 
+    Entries that match the sequence index are filtered into the filtered file 
+    (if any) and entries that don't match are filtered into the unfiltered file 
+    (if any). Displays the count of total, filtered and unfiltered reads, as 
+    well as the number of mismatches found across all reads.
 
 extra:
   recipe-maintainers:
