@@ -42,7 +42,7 @@ filter_illumina_index_main = functools.partial(filter_illumina_index_main2, retu
 
 tests_root = 'filter_illumina_index/tests/data/'
 tests_results_root = 'filter_illumina_index/tests/data/results/'
-tests_output_root = 'var/'
+tests_output_root = 'filter_illumina_index/tests/var/'
 input_test_file_fastq = tests_root + 'test_reads_GATCGTGT.fastq'
 input_test_file_fastq_gz = tests_root + 'test_reads_GATCGTGT.fastq.gz'
 input_test_file_diffbarcodes = tests_root + 'test_reads_diffbarcodes.fastq'

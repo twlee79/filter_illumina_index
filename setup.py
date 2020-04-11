@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="filter_illumina_index",
-    version="1.0.4.dev2",
+    version="1.0.4.dev3",
     author="Tet Woo Lee",
     author_email="developer@twlee.nz",
     description="Filter a Illumina FASTQ file based on index sequence",
@@ -16,15 +16,17 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/twlee79/filter_illumina_index",
     packages=setuptools.find_packages(),
-    package_data={'filter_illumina_index.tests': ['data/*.fastq',
-                                                  'data/*.fastq.gz',
-                                                  'data/results/*.fastq',
-                                                  'data/results/*.fastq.gz',
-                                                  'data/results/*.json']
-                                                  },
+    package_data={
+        "filter_illumina_index.tests": ["var/.gitkeep",
+                                        "data/*.fastq",
+                                        "data/*.fastq.gz",
+                                        "data/results/*.fastq",
+                                        "data/results/*.fastq.gz",
+                                        "data/results/*.json"]
+                                        },
     install_requires=[
-        'xopen >=v0.9.0',
-        'dnaio >=v0.4.1'
+        "xopen >=v0.9.0",
+        "dnaio >=v0.4.1"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -32,12 +34,12 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     entry_points={
-        'console_scripts': [
-            'filter_illumina_index = filter_illumina_index.filter_illumina_index:main',
+        "console_scripts": [
+            "filter_illumina_index = filter_illumina_index.filter_illumina_index:main",
         ],
     },
     test_suite="filter_illumina_index.tests",
-    data_files=[("license", ["LICENSE"]),
-                ("testdir_placeholder", ["var/.gitkeep"])
+    data_files=[("", ["LICENSE"]),
+                ("", ["README.md"])
                 ],
 )

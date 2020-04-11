@@ -1,8 +1,8 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.4.dev2" %}
+{% set version = "1.0.4.dev3" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "b523bde1f54eb63ed5a35b29d9033f5f0c27202ed74a31036b9d7e8637d0f66b" %}
+{% set hash_value = "a19b11f3db14f782b3e0efa92010dce5452c7e6be0ad4df8816c44f8e80eeacd" %}
 
 package:
   name: '{{ name|lower }}'
@@ -37,7 +37,7 @@ test:
     - filter_illumina_index/tests/data/results/*.fastq
     - filter_illumina_index/tests/data/results/*.fastq.gz
     - filter_illumina_index/tests/data/results/*.json
-    - var/.gitkeep
+    - filter_illumina_index/tests/var/.gitkeep
   imports:
     - filter_illumina_index
     - filter_illumina_index.tests
