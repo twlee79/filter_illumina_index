@@ -189,6 +189,11 @@ nature of the script processing. To prevent these `pigz` processes being
 spawned, `--threads 0` can be used, which causes a fallback to `gzip.open` at
 an additional performance cost (it is slower than `pigz`).
 
+In order for `pigz` to be used, it must be installed on the system, otherwise
+a `gzip` process is used. The `pigz` package is available on conda in the
+`conda-forge` channel, so can easily be installed in the same conda environment 
+as this program.
+
 `xopen` supports automatic compression according to the file extension, with
 `.gz`, `.bz2` and `.xz` supported. Only the first of these has been tested
 with this script but the others are expected to work without issue.
@@ -206,6 +211,9 @@ with this script but the others are expected to work without issue.
 
 
 ### Change log
+
+version 1.0.4r2 2020-04-11  
+Minor changes to `README.md` only, version not incremented in program.
 
 version 1.0.4 2020-04-11  
 Speed up and algorithm changes
