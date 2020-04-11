@@ -7,43 +7,68 @@ index. Entries that match the sequence index are filtered into the *filtered
 file* (if any) and entries that don't match are filtered into the *unfiltered
 file* (if any). Displays the count of total, filtered and unfiltered reads,
 as well as the number of mismatches found across all reads. Matching tolerating
-a certain number of mismatches (`-m` parameter), and gzip compression for input
-(detected on the basis of file extension) and output (specified using `-c`
-parameter) are supported.
+a certain number of mismatches (`-m` parameter), and compression for input
+and output are supported (detected on the basis of file extension).
 
-Specifying an empty index, (`-i ""` or `-i` with no argumenent) enables
+Specifying an empty index, (`-i ""` or `-i` with no argument) enables
 'passthrough' mode where all reads are directed to the output filtered file with
 no processing. Passthrough mode is useful if this program is part of a workflow
 that needs to be adapted to files that do not have a valid Illumina index, as it
 allows all processing of this program to be skipped.
 
-For information on Illumina sequence identifiers in FASTQ files, see:
-http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+### Illumina index
+
+For information on Illumina sequence identifiers in FASTQ files, see [FASTQ 
+Files from Illumina](https://help.basespace.illumina.com/articles/descriptive/fastq-files/).
+This includes the following excerpt:
+
+```
+For the Undetermined FASTQ files only, the sequence observed in the index read 
+is written to the FASTQ header in place of the sample number. This information 
+can be useful for troubleshooting demultiplexing.
+
+@<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
+```
+
+This script assumes the `<sample number>` value is the Illumina index. To
+ensure rapid processing, the value following the final colon(`:`) is used
+without confirming the sequence identifier conforms to the above format, or
+whether the index is actually a nucleotide sequence.
 
 ### Usage details
 
 ```
 usage: filter_illumina_index [-h] [--version] [-f FILTERED] [-u UNFILTERED] -i
-                             [INDEX] [-m MISMATCHES] [-c] [-v]
+                             [INDEX] [-m MISMATCHES] [-t THREADS]
+                             [-l {1,2,3,4,5,6,7,8,9}] [-v]
                              inputfile
 
 positional arguments:
-  inputfile             Input FASTQ file, compression supported
+  inputfile             Input FASTQ file, compression (`.gz`, `.bz2` and
+                        `.xz`) supported
 
 optional arguments:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
   -f FILTERED, --filtered FILTERED
-                        Output FASTQ file containing filtered (positive) reads
-                        (default: None)
+                        Output FASTQ file containing filtered (positive)
+                        reads; compression detected by extension (default:
+                        None)
   -u UNFILTERED, --unfiltered UNFILTERED
                         Output FASTQ file containing unfiltered (negative)
-                        reads (default: None)
+                        reads; compression detected by extension (default:
+                        None)
   -m MISMATCHES, --mismatches MISMATCHES
                         Maximum number of mismatches to tolerate (default: 0)
-  -c, --compressed      Compress output files (note: file extension not
-                        modified) (default: False)
-  -v, --verbose         Show verbose output (default: False)
+  -t THREADS, --threads THREADS
+                        Number of threads to pass to `xopen` for each open
+                        file; use 0 to turn off `pigz` use and rely on
+                        `gzip.open` so no extra threads spawned. (default: 1)
+  -l {1,2,3,4,5,6,7,8,9}, --compresslevel {1,2,3,4,5,6,7,8,9}
+                        Compression level for writing gzip files; ignored if
+                        gzip compression not used (default: 6)
+  -v, --verbose         Increase logging verbosity, available levels 1 to 2
+                        with `-v` to `-vv` (default: 0)
 
 required named arguments:
   -i [INDEX], --index [INDEX]
@@ -55,46 +80,27 @@ required named arguments:
 
 ### Example usage
 
-The directory `` contains example reads in FASTQ and compressed FASTQ format with index `GATCGTGT` and one read with a mismatch.
+The directory `filter_illumina_index/tests/data/` (within the location where
+the package is installed) contains various test files, for example 
+`test_reads_GATCGTGT.fastq` with 29 reads containing barcode `GATCGTGT` and
+one read with a 1-nt mismatch of `AATCGTGT`. Running this program with the 
+following command:
 
-To test, run:
+`filter_illumina_index filter_illumina_index/tests/data/test_reads_GATCGTGT.fastq --index GATCGTGT --filtered /tmp/filtered_reads.fastq --unfiltered /tmp/unfiltered_reads.fastq`
 
-`filter_illumina_index usr/example_reads.fastq --index GATCGTGT --filtered var/filtered_reads.fastq --unfiltered var/unfiltered_reads.fastq`
-
-python filter_illumina_index/filter_illumina_index.py usr/example_reads.fastq --index GATCGTGT 
-filter_illumina_index 1.0.4.dev1
-Input file: usr/example_reads.fastq
-Filtering for sequence index: GATCGTGT
-Max mismatches tolerated: 0
-Output filtered file: None
-Output unfiltered file: None
-Total reads: 30
-Filtered reads: 29
-Unfiltered reads: 1
- Reads with 0 mismatches: 29
- Reads with 1 mismatches: 1
- Reads with 2 mismatches: 0
- Reads with 3 mismatches: 0
- Reads with 4 mismatches: 0
- Reads with 5 mismatches: 0
- Reads with 6 mismatches: 0
- Reads with 7 mismatches: 0
- Reads with 8 mismatches: 0
- Reads with >=9 mismatches: 0
-
-This will process `srv/example_reads.fastq`, matching to index `GATCGTGT` with
-no mismatches allowed (default). Reads matching this index will be saved to
-`var/filtered_reads.fastq` and those not matching this index will be saved to
-`var/unfiltered_reads.fastq`. In addition, the following output will be
-displayed:
+will process that input file with no mismatches allowed (default) for the index
+`GATCGTGT`. The output files are `/tmp/filtered_reads.fastq` with 29 reads 
+containing the `GATCGTGT` barcode, and `/tmp/unfiltered_reads.fastq` with 1 read
+containing the mismatched-barcode `AATCGTGT`. The following log to stdout will 
+be displayed:
 
 ```
-filter_illumina_index 1.0.4.dev1
-Input file: usr/example_reads.fastq
+filter_illumina_index 1.0.4
+Input file: filter_illumina_index/tests/data/test_reads_GATCGTGT.fastq
 Filtering for sequence index: GATCGTGT
 Max mismatches tolerated: 0
-Output filtered file: None
-Output unfiltered file: None
+Output filtered file: /tmp/filtered_reads.fastq
+Output unfiltered file: /tmp/unfiltered_reads.fastq
 Total reads: 30
 Filtered reads: 29
 Unfiltered reads: 1
@@ -123,7 +129,10 @@ sequence identifier following the last colon (`:`) character is used, e.g.
                                            TGACCAAT : barcode
 ```
 
-The number of mismatches is simply the number of characters that differ between
+If there is no colon in the sequence identifier, an exception is produced as
+no barcode can be found, except in passthrough mode (which does no actual
+processing and redirects all reads to the filtered file). The number of 
+mismatches is simply the number of characters that differ between
 the provided index sequence and the barcode from the read. Any missing
 characters in either the provided index or the barcode are counted as
 mismatches. The comparison is performed at the start of the each set of
@@ -193,22 +202,31 @@ with this script but the others are expected to work without issue.
 * Licence:      GPLv3
 * Dependencies:  
   dnaio, tested with v0.4.1  
-  xopen, tested with v0.8.4
+  xopen, tested with v0.9.0
 
 
 ### Change log
 
-version 1.0.3.post2 2020-01-04  
+version 1.0.4 2020-04-11  
+Speed up and algorithm changes
+  - Switch to `dnaio` over Biopython to improve speed (>3x faster + multi-
+    threading support for compression)
+  - Change mismatch calculation algorithm, now includes any characters
+    missing in filter-by index or read index
+  - Exception if no barcode detected outside of passthrough mode
+  - Add unit tests
+
+version 1.0.3.post2 2020-04-01  
 Improved output
   - Add version number to output
   - Show parameters in output
   - Allow no argument for passthrough mode
 
-version 1.0.3.post1 2020-01-04  
+version 1.0.3.post1 2020-04-01  
 Minor bugfix
   - Bugfix: Bump version number in script
 
-version 1.0.3 2020-01-04  
+version 1.0.3 2020-04-01  
 Added `passthrough` mode with empty index
 
 version 1.0.2 2018-12-19  
@@ -222,3 +240,4 @@ Minor updates for PyPi and conda packaging
 
 version 1.0.dev1 2018-12-13  
 First working version
+

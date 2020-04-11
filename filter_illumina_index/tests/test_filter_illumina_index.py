@@ -28,6 +28,10 @@ prior to packaging these in a new version:
 #     With different index
 #   Writing fastq and fastq.gz to filtered/unfiltered (compared to expected)
 #     With different index and diff # tolerated mismatches
+#   Exception if no barcode in non-passthrough mode
+#   Passthrough mode
+#     Correct summary, correct output
+#     Exception if changing number of mismatches tolerated in this mode
 
 import unittest
 import sys
@@ -42,10 +46,11 @@ filter_illumina_index_main = functools.partial(filter_illumina_index_main2, retu
 
 tests_root = 'filter_illumina_index/tests/data/'
 tests_results_root = 'filter_illumina_index/tests/data/results/'
-tests_output_root = 'filter_illumina_index/tests/var/'
+tests_output_root = 'filter_illumina_index/tests/tmp/'
 input_test_file_fastq = tests_root + 'test_reads_GATCGTGT.fastq'
 input_test_file_fastq_gz = tests_root + 'test_reads_GATCGTGT.fastq.gz'
 input_test_file_diffbarcodes = tests_root + 'test_reads_diffbarcodes.fastq'
+input_test_file_invalidbarcodes = tests_root + 'test_reads_invalidbarcodes.fastq'
 
 
 test_set_exitcodes = [
@@ -53,6 +58,7 @@ test_set_exitcodes = [
     # only for sys.exit by argparse
     ([], 2),
     (['--version'], 0),
+    (['--help'], 0),
     ([input_test_file_fastq], 2),
     (['--index','GATCGTGT'], 2),
 ]
@@ -98,6 +104,13 @@ test_sets_vs_summary = [
     ([input_test_file_diffbarcodes, '--index','NNNCCAAT','-vv','-m 10'],'test_reads_diffbarcodes_results_NNNCCAAT_m10.json'),
     ([input_test_file_diffbarcodes, '--index','TGACCAAT','-vv','-m 20'],'test_reads_diffbarcodes_results_TGACCAAT_m20.json'),
     ([input_test_file_diffbarcodes, '--index','NNNCCAAT','-vv','-m 20'],'test_reads_diffbarcodes_results_NNNCCAAT_m20.json'),
+
+    # PASSTHROUGH MODE
+    ([input_test_file_invalidbarcodes, '--index','-vv'],'test_reads_invalidbarcodes_passthrough.json'),
+    ([input_test_file_invalidbarcodes, '--index','','-vv'],'test_reads_invalidbarcodes_passthrough.json', False),
+        # test for error in non-passhtrough mode under exception tests
+    
+
 ]
 
 test_sets_vs_output = [
@@ -118,7 +131,7 @@ test_sets_vs_output = [
     ([input_test_file_fastq, '--index','GATCGTGT',],
      ('test_reads_GATCGTGT_filtered.fastq.gz','test_reads_GATCGTGT_unfiltered.fastq.gz')
     ),
-    ([input_test_file_fastq, '--index','GATCGTCT',], # inverted, GATCGTCT is mismatch
+    ([input_test_file_fastq, '--index','AATCGTGT',], # inverted, AATCGTGT is mismatch
      ('test_reads_GATCGTGT_unfiltered.fastq.gz','test_reads_GATCGTGT_filtered.fastq.gz'), False
     ),
 
@@ -126,11 +139,11 @@ test_sets_vs_output = [
     ([input_test_file_fastq, '--index','GATCGTGT','-m','1'], # allow 1 mismatch
      ('test_reads_GATCGTGT_filtered_m1.fastq.gz','test_reads_GATCGTGT_unfiltered_m1.fastq')
     ),
-    ([input_test_file_fastq, '--index','GATCGTCT','-m','1'], # inverted, GATCGTCT is mismatch, but allow 1 mismatch
+    ([input_test_file_fastq, '--index','AATCGTGT','-m','1'], # inverted, AATCGTGT is mismatch, but allow 1 mismatch
      ('test_reads_GATCGTGT_filtered_m1.fastq.gz','test_reads_GATCGTGT_unfiltered_m1.fastq'), False
     ),
 
-    # tests with varyinf # mismatches allowed
+    # tests with varying # mismatches allowed
     ([input_test_file_diffbarcodes, '--index','TGACCAAT','-m','0','-vv'],
      ('test_reads_diffbarcodes_filtered_TGACCAAT_m0.fastq.gz',
       'test_reads_diffbarcodes_unfiltered_TGACCAAT_m0.fastq.gz'), 
@@ -158,9 +171,25 @@ test_sets_vs_output = [
     ([input_test_file_diffbarcodes, '--index','TGACCAAT','-m','10','-vv'],
      ('test_reads_diffbarcodes_filtered_TGACCAAT_m10.fastq.gz',
       'test_reads_diffbarcodes_unfiltered_TGACCAAT_m10.fastq.gz'), 
-    )
+    ),
+
+    # tests of passthrough output
+    ([input_test_file_invalidbarcodes, '--index','-vv'],
+     ('test_reads_invalidbarcodes_passthrough_filtered.fastq.gz',
+      'test_reads_invalidbarcodes_passthrough_unfiltered.fastq',
+     ),
+    ),
 
 ]
+
+exception_test_sets = [
+    # tuples of (options, exception, expected exception regex)
+    ([input_test_file_invalidbarcodes, '--index','','--mismatches','1','-vv'],
+        ValueError, "passthrough"), # changing # mismatches and passthrough
+    ([input_test_file_invalidbarcodes, '--index','TGACCAAT','-vv'],
+        ValueError, "no barcode") # failure to find barcode
+]
+
 
 class TestFilerIlluminaIndex(unittest.TestCase):
     def test_exitcodes(self):
@@ -235,6 +264,20 @@ class TestFilerIlluminaIndex(unittest.TestCase):
                     self.helper_compare_files(test_expected_filtered_path, test_output_filtered_path)
                 if test_expected_unfiltered_file:
                     self.helper_compare_files(test_expected_unfiltered_path, test_output_unfiltered_path)
+
+    def test_errors(self):
+        # generic tests for testing exceptions are generated
+
+        for exception_test_set in exception_test_sets:
+            test_options, exception, test_exception_regex = exception_test_set
+            flat_test_options = " ".join(test_options)
+            with self.subTest(options = flat_test_options,
+                              exception = exception,
+                              exception_regex = test_exception_regex):
+                print("Testing options {} for exception {}:".format(flat_test_options,
+                    test_exception_regex))
+                with self.assertRaisesRegex(exception, test_exception_regex):
+                    filter_illumina_index_main(test_options)
 
 
 # this function will generate results files, instead of checking against them

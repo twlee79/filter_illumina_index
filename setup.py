@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="filter_illumina_index",
-    version="1.0.4.dev3",
+    version="1.0.4",
     author="Tet Woo Lee",
     author_email="developer@twlee.nz",
     description="Filter a Illumina FASTQ file based on index sequence",
@@ -17,12 +17,12 @@ setuptools.setup(
     url="https://github.com/twlee79/filter_illumina_index",
     packages=setuptools.find_packages(),
     package_data={
-        "filter_illumina_index.tests": ["var/.gitkeep",
-                                        "data/*.fastq",
+        "filter_illumina_index.tests": ["data/*.fastq",
                                         "data/*.fastq.gz",
                                         "data/results/*.fastq",
                                         "data/results/*.fastq.gz",
-                                        "data/results/*.json"]
+                                        "data/results/*.json",
+                                        "tmp/.gitkeep"]
                                         },
     install_requires=[
         "xopen >=v0.9.0",

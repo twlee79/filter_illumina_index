@@ -29,35 +29,37 @@ _PROGRAM_NAME = 'filter_illumina_index'
 # Author:       Tet Woo Lee
 #
 # Created:      2018-12-13
-# Copyright:    © 2018 Tet Woo Lee
+# Copyright:    © 2018-2020 Tet Woo Lee
 # Licence:      GPLv3
 #
 # Dependencies: dnaio, tested with v0.4.1
 #               xopen, tested with v0.9.0
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.4.dev3'
+_PROGRAM_VERSION = '1.0.4'
 # -------------------------------------------------------------------------------
 # ### Change log
 #
-# version 1.0.4 2020-01-04
+# version 1.0.4 2020-04-11
 # Speed up and algorithm changes
 #   - Switch to `dnaio` over Biopython to improve speed (>3x faster + multi-
 #     threading support for compression)
 #   - Change mismatch calculation algorithm, now includes any characters
 #     missing in filter-by index or read index
+#   - Exception if no barcode detected outside of passthrough mode
+#   - Add unit tests
 #
-# version 1.0.3.post2 2020-01-04
+# version 1.0.3.post2 2020-04-01
 # Improved output
 #   - Add version number to output
 #   - Show parameters in output
 #   - Allow no argument for passthrough mode
 #
-# version 1.0.3.post1 2020-01-04
+# version 1.0.3.post1 2020-04-01
 # Minor bugfix
 #   - Bugfix: Bump version number in script
 #
-# version 1.0.3 2020-01-04
+# version 1.0.3 2020-04-01
 # Added `passthrough` mode with empty index
 #
 # version 1.0.2 2018-12-19
@@ -73,8 +75,6 @@ _PROGRAM_VERSION = '1.0.4.dev3'
 # First working version
 #
 # -------------------------------------------------------------------------------
-
-# TODO: tests
 
 # INITIALISATION
 
@@ -115,6 +115,8 @@ def main(argv = None, return_result = False):
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase logging verbosity, available levels 1 to 2 '
                              'with `-v` to `-vv`')
+
+    print(_PROGRAM_NAME_VERSION)
     args = parser.parse_args(argv)
 
 
@@ -129,12 +131,14 @@ def main(argv = None, return_result = False):
 
     if filter_seq_index == '':
         passthrough_mode = True
+        if max_tolerated_mismatches!=0: 
+            raise ValueError("changing number of tolerated mismatches "
+                             "incompatible with passthrough mode")
         max_tolerated_mismatches = float('NaN')
     else:
         passthrough_mode = False
 
     # HELPER FUNCTIONS
-    print(_PROGRAM_NAME_VERSION)
     print("Input file: {}".format(input_path))
     print("Filtering for sequence index: {}{}".format(filter_seq_index,
         "(passthrough mode)" if passthrough_mode else ""))
@@ -179,11 +183,14 @@ def main(argv = None, return_result = False):
 
             else:
                 # Illimina sequence identifier in FASTQ files:
-                # see http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+                # see https://help.basespace.illumina.com/articles/descriptive/fastq-files/
                 # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
                 # For the Undetermined FASTQ files only, the sequence observed in the index read is written to the FASTQ header in place of the sample number. This information can be useful for troubleshooting demultiplexing.
                 # grab the sequence index, use simplistic method of value after last : for efficiency
                 seqid = record.name
+                last_colon = seqid.rfind(':')
+                if last_colon==-1:
+                    raise ValueError("no barcode detected for sequence {}".format(seqid))
                 entry_seq_index = seqid[seqid.rfind(':')+1:]
                 n_mismatches = abs(len(entry_seq_index)-len(filter_seq_index))
                 if entry_seq_index!=filter_seq_index:

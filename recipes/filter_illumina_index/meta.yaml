@@ -1,8 +1,8 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.4.dev3" %}
+{% set version = "1.0.4" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "a19b11f3db14f782b3e0efa92010dce5452c7e6be0ad4df8816c44f8e80eeacd" %}
+{% set hash_value = "a5f3fe2418e920f95121a2a81067027df7e4584bc7cfefba8ae7513d168b9aa6" %}
 
 package:
   name: '{{ name|lower }}'
@@ -11,6 +11,9 @@ package:
 source:
   fn: '{{ name }}-{{ version }}.{{ file_ext }}'
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
+# to build with local tarball built by setuptools in dist directory, use following url
+# use sha256sum to get hash
+#  url: ../../dist/{{ name }}-{{ version }}.{{ file_ext }}
   '{{ hash_type }}': '{{ hash_value }}'
 
 build:
@@ -37,7 +40,7 @@ test:
     - filter_illumina_index/tests/data/results/*.fastq
     - filter_illumina_index/tests/data/results/*.fastq.gz
     - filter_illumina_index/tests/data/results/*.json
-    - filter_illumina_index/tests/var/.gitkeep
+    - filter_illumina_index/tests/tmp/.gitkeep
   imports:
     - filter_illumina_index
     - filter_illumina_index.tests
@@ -57,7 +60,9 @@ about:
     Entries that match the sequence index are filtered into the filtered file 
     (if any) and entries that don't match are filtered into the unfiltered file 
     (if any). Displays the count of total, filtered and unfiltered reads, as 
-    well as the number of mismatches found across all reads.
+    well as the number of mismatches found across all reads. Also supports
+    dummy 'passthrough' mode for simply redirecting all reads to filtered file 
+    for sequence files lacking barcodes.
 
 extra:
   recipe-maintainers:
