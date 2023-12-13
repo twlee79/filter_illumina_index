@@ -36,7 +36,7 @@ _PROGRAM_NAME = 'filter_illumina_index'
 #               xopen, tested with v0.9.0
 # -------------------------------------------------------------------------------
 
-_PROGRAM_VERSION = '1.0.4'
+_PROGRAM_VERSION = '1.0.5'
 # -------------------------------------------------------------------------------
 # ### Change log
 #
@@ -102,9 +102,22 @@ def main(argv = None, return_result = False):
                                        help='Sequence index to filter for; if empty '
                                        '(i.e. no argument or "") then program will '
                                        'run in "passthrough" mode with all reads '
-                                       'directed to filtered file with no processing')
+                                       'directed to filtered file with no processing. '
+                                       'If index2 is provided, this is the index '
+                                       'before the separator; no argument or "" '
+                                       'will mean no filtering by this index.')
+    parser_required_named.add_argument('-j', '--index2', const='', nargs='?',
+                                       help='Optional second sequence index to filter for; '
+                                       'this is the index after the separator; '
+                                       'if empty (i.e. no argument or "") '
+                                       'no filtering by this index; '
+                                       'separator must be set if this is used')
+    parser_required_named.add_argument('-s', '--separator', 
+                                       help='Optional separator between indexes (e.g. "+"); '
+                                       'second index must be set if this is used.')
     parser.add_argument('-m', '--mismatches', default=0, type=int,
-                        help='Maximum number of mismatches to tolerate')
+                        help='Maximum number of mismatches to tolerate '
+                        '(total if two indexes used)')
     parser.add_argument('-t', '--threads', default=1, type=int,
                         help='Number of threads to pass to `xopen` for each '
                         'open file; use 0 to turn off `pigz` use and rely '
@@ -119,7 +132,6 @@ def main(argv = None, return_result = False):
     print(_PROGRAM_NAME_VERSION)
     args = parser.parse_args(argv)
 
-
     input_path = args.inputfile
     out_filtered_path = args.filtered
     out_unfiltered_path = args.unfiltered
@@ -128,20 +140,43 @@ def main(argv = None, return_result = False):
     threads = args.threads
     compresslevel = args.compresslevel
     verbose = args.verbose
+    separator = args.separator
+    filter_seq_index2 = args.index2
 
-    if filter_seq_index == '':
-        passthrough_mode = True
+    if (separator and filter_seq_index2 is None) or \
+       (separator is None and filter_seq_index2):
+            raise ValueError("both separator and index2 must be provided")
+
+    if separator and filter_seq_index2 is not None:
+        double_index = True
+    else:
+        double_index = False
+
+    if double_index:
+        passthrough1 = filter_seq_index == ''
+        passthrough2 = filter_seq_index2 == ''
+        passthrough_mode = passthrough1 and passthrough2
+    else:
+        passthrough_mode = filter_seq_index == ''
+
+    if passthrough_mode:
         if max_tolerated_mismatches!=0: 
             raise ValueError("changing number of tolerated mismatches "
-                             "incompatible with passthrough mode")
+                            "incompatible with passthrough mode")
         max_tolerated_mismatches = float('NaN')
-    else:
-        passthrough_mode = False
+
 
     # HELPER FUNCTIONS
     print("Input file: {}".format(input_path))
-    print("Filtering for sequence index: {}{}".format(filter_seq_index,
-        "(passthrough mode)" if passthrough_mode else ""))
+    if not separator:
+        print("Filtering for sequence index: {}{}".format(filter_seq_index,
+            "(passthrough mode)" if passthrough_mode else ""))
+    else:
+        print("Filtering for sequence index 1: {}{}".format(filter_seq_index,
+            "(passthrough)" if passthrough1 else ""))
+        print("Filtering for sequence index 2: {}{}".format(filter_seq_index2,
+            "(passthrough)" if passthrough2 else ""))
+        print("Separator between index 1 and 2: {}".format(separator))
     print("Max mismatches tolerated: {}".format(max_tolerated_mismatches))
     print("Output filtered file: {}".format(out_filtered_path))
     print("Output unfiltered file: {}".format(out_unfiltered_path))
@@ -158,9 +193,10 @@ def main(argv = None, return_result = False):
     total_reads = 0
     filtered_reads = 0
     unfiltered_reads = 0
-    max_tracked_mismatches = len(filter_seq_index)
+    max_tracked_mismatches = max(len(filter_seq_index), 
+        len(filter_seq_index2) if filter_seq_index2 else 0)
     cumul_n_mismatches = [0 for i in range(max_tracked_mismatches + 2)]
-    # array for tracking number of mismatches (0-indexlen,>indexlen+1)
+    # array for tracking number of mismatches (0 to indexlen,>indexlen+1)
     # >indexlen+1 is required because we define mismatch to include extra
     # characters from desired index OR read index, which may be longer
     if passthrough_mode: filtered = True
@@ -173,6 +209,9 @@ def main(argv = None, return_result = False):
             unfiltered_fastq = dnaio.open(out_unfiltered_path, mode='w', opener=xopen_xthreads)
         else:
             unfiltered_fastq = None
+        if double_index:
+            if passthrough1: index1 = "(pass)"
+            if passthrough2: index2 = "(pass)"
         for record in input_fastq:
             total_reads += 1
             if passthrough_mode:
@@ -191,17 +230,48 @@ def main(argv = None, return_result = False):
                 last_colon = seqid.rfind(':')
                 if last_colon==-1:
                     raise ValueError("no barcode detected for sequence {}".format(seqid))
-                entry_seq_index = seqid[seqid.rfind(':')+1:]
-                n_mismatches = abs(len(entry_seq_index)-len(filter_seq_index))
-                if entry_seq_index!=filter_seq_index:
-                    for c1,c2 in zip(entry_seq_index,filter_seq_index):
-                        if c1!=c2: n_mismatches+=1
-                filtered = (n_mismatches <= max_tolerated_mismatches)
-                if verbose>=2:
-                    print("{} -> index {} -> {} mismatches ({})".format(seqid,
-                        entry_seq_index, n_mismatches,
-                        'filtered' if filtered else 'unfiltered'))
-                if n_mismatches>=max_tracked_mismatches:
+                entry_seq_index = seqid[last_colon+1:]
+
+                if not double_index:
+                    n_mismatches = abs(len(entry_seq_index)-len(filter_seq_index))
+                    if entry_seq_index!=filter_seq_index:
+                        for c1,c2 in zip(entry_seq_index,filter_seq_index):
+                            if c1!=c2: n_mismatches+=1
+                    filtered = (n_mismatches <= max_tolerated_mismatches)
+                    if verbose>=2:
+                        print("{} -> index {} -> {} mismatches ({})".format(seqid,
+                            entry_seq_index, n_mismatches,
+                            'filtered' if filtered else 'unfiltered'))
+                else:
+                    separator_pos = entry_seq_index.find(separator)
+                    if separator_pos==-1:
+                        raise ValueError("no separator detected for sequence {}".format(seqid))
+
+                    n_mismatches1 = 0
+                    if not passthrough1:
+                        index1 = entry_seq_index[:separator_pos]
+                        n_mismatches1 += abs(len(index1)-len(filter_seq_index))
+                        if index1!=filter_seq_index:
+                            for c1,c2 in zip(index1,filter_seq_index):
+                                if c1!=c2: n_mismatches1+=1
+
+                    n_mismatches2 = 0
+                    if not passthrough2:
+                        index2 = entry_seq_index[separator_pos+len(separator):]
+                        n_mismatches2 += abs(len(index2)-len(filter_seq_index2))
+                        if index2!=filter_seq_index2:
+                            for c1,c2 in zip(index2,filter_seq_index2):
+                                if c1!=c2: n_mismatches2+=1
+
+                    n_mismatches = n_mismatches1+n_mismatches2
+                    filtered = (n_mismatches <= max_tolerated_mismatches)
+                    if verbose>=2:
+                        print("{} -> {} -> index {} & {} -> {} + {} = {} mismatches ({})".format(seqid,
+                            entry_seq_index, index1, index2, 
+                            n_mismatches1, n_mismatches2, n_mismatches,
+                            'filtered' if filtered else 'unfiltered'))
+
+                if n_mismatches>max_tracked_mismatches:
                     n_mismatches = max_tracked_mismatches+1
                 cumul_n_mismatches[n_mismatches] += 1
             if filtered:

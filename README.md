@@ -95,7 +95,7 @@ containing the mismatched-barcode `AATCGTGT`. The following log to stdout will
 be displayed:
 
 ```
-filter_illumina_index 1.0.4
+filter_illumina_index 1.0.5
 Input file: filter_illumina_index/tests/data/test_reads_GATCGTGT.fastq
 Filtering for sequence index: GATCGTGT
 Max mismatches tolerated: 0
@@ -114,7 +114,112 @@ Unfiltered reads: 1
  Reads with 7 mismatches: 0
  Reads with 8 mismatches: 0
  Reads with >=9 mismatches: 0
+ ```
+
+### Example usage with two indexes
+
+Version 1.0.5 adds support for two indexes separated by a user-specified
+separator. Reads are filtered by the total number of mismatches in both
+indexes. Alternatively, either index can be left blank in which case all
+reads for that index will be passed through, and only the non-blank index
+will be used for filtering.
+
+The test file `test_reads_GATCGTGT+TCTATCCT.fastq` contains two indexes
+`GATCGTGT` and `TCTATCCT` separated by a `+` character, with 24 reads containing
+no mismatches, and one read each with the following number of mismatches for the
+two barcodes: (1,0), (0,1), (1,1), (2,1), (1,2), (2,2).
+
+Running this program with the following command:
+
+`filter_illumina_index filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq --index GATCGTGT --separator + --index2 TCTATCCT --filtered /tmp/filtered_reads.fastq --unfiltered /tmp/unfiltered_reads.fastq`
+
+will process that input file with no mismatches allowed (default) for the 
+both indexes. The output files are `/tmp/filtered_reads.fastq` with 24 reads 
+containing both the `GATCGTGT` and `TCTATCCT` barcodes, and 
+`/tmp/unfiltered_reads.fastq` with 6 reads containing any mismatches. 
+The following log to stdout will be displayed:
+
 ```
+filter_illumina_index 1.0.5
+Input file: filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq
+Filtering for sequence index 1: GATCGTGT
+Filtering for sequence index 2: TCTATCCT
+Separator between index 1 and 2: +
+Max mismatches tolerated: 0
+Output filtered file: /tmp/filtered_reads.fastq
+Output unfiltered file: /tmp/unfiltered_reads.fastq
+Total reads: 30
+Filtered reads: 24
+Unfiltered reads: 6
+ Reads with 0 mismatches: 24
+ Reads with 1 mismatches: 2
+ Reads with 2 mismatches: 1
+ Reads with 3 mismatches: 2
+ Reads with 4 mismatches: 1
+ Reads with 5 mismatches: 0
+ Reads with 6 mismatches: 0
+ Reads with 7 mismatches: 0
+ Reads with 8 mismatches: 0
+ Reads with >=9 mismatches: 0
+```
+
+Alternatively, the following command could be used to filter by the second
+barcode only:
+
+`filter_illumina_index filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq --index --separator + --index2 TCTATCCT --filtered /tmp/filtered_reads.fastq --unfiltered /tmp/unfiltered_reads.fastq`
+
+Or (with `""` used for `--index`):
+
+`filter_illumina_index filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq --index "" --separator + --index2 TCTATCCT --filtered /tmp/filtered_reads.fastq --unfiltered /tmp/unfiltered_reads.fastq`
+
+This will process that input file with no mismatches allowed (default) for the 
+second `TCTATCCT` index. The first indexes (before the `+`) is ignored. 
+The output files are `/tmp/filtered_reads.fastq` with 25 reads 
+containing the `TCTATCCT` barcodes with no mismatches, and 
+`/tmp/unfiltered_reads.fastq` with 5 reads containing any mismatches in this
+barcode. The following log to stdout will be displayed:
+
+```
+filter_illumina_index 1.0.5
+Input file: filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq
+Filtering for sequence index 1: (passthrough)
+Filtering for sequence index 2: TCTATCCT
+Separator between index 1 and 2: +
+Max mismatches tolerated: 0
+Output filtered file: /tmp/filtered_reads.fastq
+Output unfiltered file: /tmp/unfiltered_reads.fastq
+Total reads: 30
+Filtered reads: 25
+Unfiltered reads: 5
+ Reads with 0 mismatches: 25
+ Reads with 1 mismatches: 3
+ Reads with 2 mismatches: 2
+ Reads with 3 mismatches: 0
+ Reads with 4 mismatches: 0
+ Reads with 5 mismatches: 0
+ Reads with 6 mismatches: 0
+ Reads with 7 mismatches: 0
+ Reads with 8 mismatches: 0
+ Reads with >=9 mismatches: 0
+```
+
+A similar approach can be used to filter by the first barcode only using one of
+the following commands:
+
+`filter_illumina_index filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq --index GATCGTGT --separator + --index2 --filtered /tmp/filtered_reads.fastq --unfiltered /tmp/unfiltered_reads.fastq`
+
+Or:
+
+`filter_illumina_index filter_illumina_index/tests/data/test_reads_GATCGTGT+TCTATCCT.fastq --index GATCGTGT --separator + --index2 "" --filtered /tmp/filtered_reads.fastq --unfiltered /tmp/unfiltered_reads.fastq`
+
+Note that both `--separator` and `--index2` must be provided, although with
+the latter left blank.
+
+The program does not support filtering by a certain number of mismatches for
+each barcode, only by the total. This functionality, however, could be obtained
+using two passes and processing each barcode separately with passthrough for
+the other barcode.
+
 
 ### Algorithm details
 
@@ -176,6 +281,12 @@ Where there is a greater number of characters in the read barcode than the
 provided index, the number of mismatches is summarised as `>=index length+1`,
 i.e. the final entry above will be counted as >=9 mismatches.
 
+When two barcodes are present, the sequence identifier field is split into
+two substrings at the first-instance of the character(s) provided as the
+separator. Then each barcode is processed with the rules above with the
+total number of mismatches used to filter reads. If either barcode is left
+blank, then only the non-blank barcode is used.
+
 ### File reading/writing and threading
 
 This script uses the `dnaio` and `xopen` packages for reading/writing FASTQ
@@ -211,6 +322,11 @@ with this script but the others are expected to work without issue.
 
 
 ### Change log
+
+version 1.0.5 2023-12-14
+Update to allow two indexes separated by user-specified separator, and allowing
+passthrough for each index.
+Bugfix counting mismatches if >= max tracked.
 
 version 1.0.4r2 2020-04-11  
 Minor changes to `README.md` only, version not incremented in program.

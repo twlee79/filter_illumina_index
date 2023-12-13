@@ -52,6 +52,11 @@ input_test_file_fastq_gz = tests_root + 'test_reads_GATCGTGT.fastq.gz'
 input_test_file_diffbarcodes = tests_root + 'test_reads_diffbarcodes.fastq'
 input_test_file_invalidbarcodes = tests_root + 'test_reads_invalidbarcodes.fastq'
 
+input_test_file_fastq_double = tests_root + 'test_reads_GATCGTGT+TCTATCCT.fastq'
+input_test_file_fastq_double_2charsep = tests_root + 'test_reads_GATCGTGT++TCTATCCT.fastq'
+input_test_file_fastq_triple = tests_root + 'test_reads_GATCGTGT+TCTATCCT+ATG.fastq'
+input_test_file_invaliddouble = tests_root + 'test_reads_invaliddouble.fastq'
+
 
 test_set_exitcodes = [
     # tuples of ([options], expected return code)
@@ -105,11 +110,65 @@ test_sets_vs_summary = [
     ([input_test_file_diffbarcodes, '--index','TGACCAAT','-vv','-m 20'],'test_reads_diffbarcodes_results_TGACCAAT_m20.json'),
     ([input_test_file_diffbarcodes, '--index','NNNCCAAT','-vv','-m 20'],'test_reads_diffbarcodes_results_NNNCCAAT_m20.json'),
 
+    # for double index
+    # test number of filtered/unfiltered with diff mismatch tolerances
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 1'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+TCTATCCT_m1.json'),
+    ([input_test_file_fastq_double, '--index','NNNCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 1'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGT+TCTATCCT_m1.json'),
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','NNNATCCT','-vv','-m 1'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+NNNATCCT_m1.json'),
+    ([input_test_file_fastq_double, '--index','NNNCGTGT','--separator','+','--index2','NNNATCCT','-vv','-m 1'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGT+NNNATCCT_m1.json'),
+    
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 2'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+TCTATCCT_m2.json'),
+    ([input_test_file_fastq_double, '--index','NNNCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 2'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGT+TCTATCCT_m2.json'),
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','NNNATCCT','-vv','-m 2'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+NNNATCCT_m2.json'),
+    ([input_test_file_fastq_double, '--index','NNNCGTGT','--separator','+','--index2','NNNATCCT','-vv','-m 2'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGT+NNNATCCT_m2.json'),
+
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 5'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+TCTATCCT_m5.json'),
+    ([input_test_file_fastq_double, '--index','NNNCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 5'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGT+TCTATCCT_m5.json'),
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','NNNATCCT','-vv','-m 5'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+NNNATCCT_m5.json'),
+    ([input_test_file_fastq_double, '--index','NNNCGTGT','--separator','+','--index2','NNNATCCT','-vv','-m 5'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGT+NNNATCCT_m5.json'),
+
+    # test file containing double-character separator
+    ([input_test_file_fastq_double_2charsep, '--index','GATCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 0'],
+        'test_reads_GATCGTGT++TCTATCCT_results_GATCGTGT+TCTATCCT_m0.json'),
+    ([input_test_file_fastq_double_2charsep, '--index','GATCGTGT','--separator','++','--index2','TCTATCCT','-vv','-m 0'],
+        'test_reads_GATCGTGT++TCTATCCT_results_GATCGTGT++TCTATCCT_m0.json'),
+    
+    # test file with 'triple' indexes; second index will contain both second and third
+    ([input_test_file_fastq_triple, '--index','GATCGTGT','--separator','+','--index2','TCTATCCT','-vv','-m 0'],
+        'test_reads_GATCGTGT+TCTATCCT+ATG_results_GATCGTGT+TCTATCCT_m0.json'),
+
+    # tests for high number of mismatches & saturating recording bins
+    ([input_test_file_fastq_double, '--index','NNNCGTGTA','--separator','+','--index2','NNNATCC','-vv','-m 0'],
+        'test_reads_GATCGTGT+TCTATCCT_results_NNNCGTGTA+NNNATCC_m0.json'),
+    ([input_test_file_fastq_double, '--index','GNNCGTGTAA','--separator','+','--index2','TNNATC','-vv','-m 0'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GNNCGTGTAA+TNNATC_m0.json'),
+    ([input_test_file_fastq_double, '--index','GNNCGTGTAA','--separator','+','--index2','TCNAT','-vv','-m 0'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GNNCGTGTAA+TCNAT_m0.json'),
+
+    ([input_test_file_fastq_double, '--index','GNNNGTGTA','--separator','+','--index2','TCNAT','-vv','-m 0'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GNNNGTGTA+TCNAT_m0.json'),
+
     # PASSTHROUGH MODE
     ([input_test_file_invalidbarcodes, '--index','-vv'],'test_reads_invalidbarcodes_passthrough.json'),
     ([input_test_file_invalidbarcodes, '--index','','-vv'],'test_reads_invalidbarcodes_passthrough.json', False),
         # test for error in non-passhtrough mode under exception tests
     
+    ([input_test_file_fastq_double, '--index','','--separator','+','--index2','TCTATCCT','-vv','-m 1'],
+        'test_reads_GATCGTGT+TCTATCCT_results_pass+TCTATCCT_m1.json'),
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+','--index2','','-vv','-m 1'],
+        'test_reads_GATCGTGT+TCTATCCT_results_GATCGTGT+pass_m1.json'),
 
 ]
 
@@ -173,12 +232,41 @@ test_sets_vs_output = [
       'test_reads_diffbarcodes_unfiltered_TGACCAAT_m10.fastq.gz'), 
     ),
 
+    # for double index
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+',
+        '--index2','TCTATCCT','-vv','-m 0'],
+     ('test_reads_GATCGTGT+TCTATCCT_filtered_GATCGTGT+TCTATCCT_m0.fastq',
+      'test_reads_GATCGTGT+TCTATCCT_unfiltered_GATCGTGT+TCTATCCT_m0.fastq')
+    ), 
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+',
+        '--index2','TCTATCCT','-vv','-m 1'],
+     ('test_reads_GATCGTGT+TCTATCCT_filtered_GATCGTGT+TCTATCCT_m1.fastq',
+      'test_reads_GATCGTGT+TCTATCCT_unfiltered_GATCGTGT+TCTATCCT_m1.fastq')
+    ), 
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+',
+        '--index2','TCTATCCT','-vv','-m 5'],
+     ('test_reads_GATCGTGT+TCTATCCT_filtered_GATCGTGT+TCTATCCT_m5.fastq',
+      'test_reads_GATCGTGT+TCTATCCT_unfiltered_GATCGTGT+TCTATCCT_m5.fastq')
+    ), 
+
     # tests of passthrough output
     ([input_test_file_invalidbarcodes, '--index','-vv'],
      ('test_reads_invalidbarcodes_passthrough_filtered.fastq.gz',
       'test_reads_invalidbarcodes_passthrough_unfiltered.fastq',
      ),
     ),
+
+    # double index pass
+    ([input_test_file_fastq_double, '--index','','--separator','+',
+        '--index2','TCTATCCT','-vv','-m 0'],
+     ('test_reads_GATCGTGT+TCTATCCT_filtered_pass+TCTATCCT_m0.fastq',
+      'test_reads_GATCGTGT+TCTATCCT_unfiltered_pass+TCTATCCT_m0.fastq')
+    ), 
+    ([input_test_file_fastq_double, '--index','GATCGTGT','--separator','+',
+        '--index2','','-vv','-m 0'],
+     ('test_reads_GATCGTGT+TCTATCCT_filtered_GATCGTGT+pass_m0.fastq',
+      'test_reads_GATCGTGT+TCTATCCT_unfiltered_GATCGTGT+pass_m0.fastq')
+    ), 
 
 ]
 
@@ -187,7 +275,13 @@ exception_test_sets = [
     ([input_test_file_invalidbarcodes, '--index','','--mismatches','1','-vv'],
         ValueError, "passthrough"), # changing # mismatches and passthrough
     ([input_test_file_invalidbarcodes, '--index','TGACCAAT','-vv'],
-        ValueError, "no barcode") # failure to find barcode
+        ValueError, "no barcode"), # failure to find barcode
+    ([input_test_file_invaliddouble, '--index','GATCGTGT','--index2','TCTATCCT','-vv'],
+        ValueError, "both"), # need both index/seperator
+    ([input_test_file_invaliddouble, '--index','GATCGTGT','--separator','+','-vv'],
+        ValueError, "both"), # need both index/seperator
+    ([input_test_file_invaliddouble, '--index','GATCGTGT','--separator','+','--index2','TCTATCCT','-vv'],
+        ValueError, "no separator") # failure to find barcode
 ]
 
 
