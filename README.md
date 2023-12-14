@@ -282,7 +282,7 @@ provided index, the number of mismatches is summarised as `>=index length+1`,
 i.e. the final entry above will be counted as >=9 mismatches.
 
 When two barcodes are present, the sequence identifier field is split into
-two substrings at the first-instance of the character(s) provided as the
+two substrings at the first instance of the character(s) provided as the
 separator. Then each barcode is processed with the rules above with the
 total number of mismatches used to filter reads. If either barcode is left
 blank, then only the non-blank barcode is used.

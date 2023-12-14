@@ -1,8 +1,8 @@
 {% set name = "filter_illumina_index" %}
-{% set version = "1.0.4" %}
+{% set version = "1.0.5" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "a5f3fe2418e920f95121a2a81067027df7e4584bc7cfefba8ae7513d168b9aa6" %}
+{% set hash_value = "782475ffec4a0841f165894e491ab90c0cb7dbbeb18358265143d99ab5b3d53a" %}
 
 package:
   name: '{{ name|lower }}'
@@ -21,6 +21,8 @@ build:
   entry_points:
     - filter_illumina_index = filter_illumina_index.filter_illumina_index:main
   script: python setup.py install --single-version-externally-managed --record=record.txt
+  #noarch: python 
+  # uncomment above for noarch build
 
 requirements:
   host:
